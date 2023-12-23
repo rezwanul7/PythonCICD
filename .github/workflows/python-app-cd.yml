@@ -22,7 +22,7 @@ jobs:
         port: ${{ secrets.PORT }}
         script: |
           cd ~/PythonCICD
-          git pull origin master
+          git pull origin github-actions-cd
           git status
 
   
