@@ -21,9 +21,8 @@ jobs:
         key: ${{ secrets.PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         script: |
-          cd /home/rezwan
+          cd ~/PythonCICD
           git pull origin master
           git status
-          pwd
 
   
