@@ -22,8 +22,7 @@ jobs:
         port: ${{ secrets.PORT }}
         script: |
           cd ~/PythonCICD
-          git pull origin github-actions-cd
+          git pull
           git checkout github-actions-cd
           git status
-          chmod +x deploy.sh
-          ./deploy.sh
+          bash deploy.sh
