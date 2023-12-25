@@ -25,4 +25,5 @@ jobs:
           git pull origin github-actions-cd
           git checkout github-actions-cd
           git status
+          chmod +x deploy.sh
           ./deploy.sh
