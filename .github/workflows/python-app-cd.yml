@@ -13,21 +13,11 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     steps:
-    - name: Executing remote ssh commands using password
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.PRIVATE_KEY }}
-        port: ${{ secrets.PORT }}
-        script: |
-          cd ~/PythonCICD
-          git pull origin develop
-          git checkout develop
-          git status
-          export PATH="$HOME/.local/bin:$PATH"
-          poetry install
-          poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
-          
-
-  
+      - name: Executing remote ssh commands using password
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          port: ${{ secrets.PORT }}
+          script: ./deploy.sh
