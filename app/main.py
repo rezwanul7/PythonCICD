@@ -1,3 +1,4 @@
+import os
 from typing import Union
 
 from fastapi import FastAPI
@@ -7,7 +8,11 @@ app = FastAPI()
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World, Deployed to Dev Server"}
+    app_env = os.getenv("APP_ENV", "UNKNOWN")
+    return {
+        "message": "hello world!",
+        "env": app_env
+    }
 
 
 @app.get("/items/{item_id}")
