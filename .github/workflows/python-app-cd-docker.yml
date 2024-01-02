@@ -10,7 +10,7 @@ on:
 
 jobs:
   build_deploy_docker_container:
-    name: Build Docker Container, Push to Docker hub & eventually Deploy in Development Server
+    name: Build Docker Container, Push to Docker hub & Deploy to the Staging Server
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -37,19 +37,16 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.PRIVATE_KEY }}
           port: ${{ secrets.PORT }}
-          source: "compose.yaml"
+          source: "compose.stag.yaml"
           target: ~/PythonCICD/
 
-#      - name: Executing remote ssh commands using password
-#        uses: appleboy/ssh-action@v1.0.0
-#        with:
-#          host: ${{ secrets.HOST }}
-#          username: ${{ secrets.USERNAME }}
-#          key: ${{ secrets.PRIVATE_KEY }}
-#          port: ${{ secrets.PORT }}
-#          script: |
-#            cd ~/PythonCICD
-#            git pull
-#            git checkout develop
-#            git status
-#            bash deploy_docker.sh
+      - name: Executing remote ssh commands using password
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            cd ~/PythonCICD
+            docker compose pull && docker compose -f compose.stag.yaml up -d && exit
