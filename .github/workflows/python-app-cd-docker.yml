@@ -49,4 +49,5 @@ jobs:
           port: ${{ secrets.PORT }}
           script: |
             cd ~/PythonCICD
-            docker compose pull && docker compose -f compose.stag.yaml up -d && exit
+            docker compose -f compose.stag.yaml pull && docker compose -f compose.stag.yaml up -d
+            echo "Deployment completed successfully."
