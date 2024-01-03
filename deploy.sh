@@ -4,7 +4,7 @@
 set -e
 
 # Install dependencies
-export PATH=$HOME/.local/bin:$PATH
+#export PATH=$HOME/.local/bin:$PATH
 poetry install
 
 # Restart the FastAPI app
