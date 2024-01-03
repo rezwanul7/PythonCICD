@@ -9,6 +9,24 @@ on:
       - develop-non-containerized
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.5.1
+      - name: Install Project Dependencies
+        run: poetry install --no-interaction --no-root
+      - name: Run Tests
+        run: poetry run pytest -v
+
   deploy:
     name: Deploy to Development Server
     runs-on: ubuntu-latest
