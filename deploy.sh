@@ -5,7 +5,7 @@ set -e
 
 # Install dependencies
 export PATH=$HOME/.local/bin:$PATH
-poetry install
+poetryx install
 
 # Restart the FastAPI app
 echo "restarting the app"

@@ -26,7 +26,7 @@ jobs:
       - name: Install Project Dependencies
         run: poetry install --no-interaction --no-root
       - name: Run Tests
-        run: run pytest -v
+        run: poetry run pytest -v
 
   deploy:
     name: Deploy to Development Server
