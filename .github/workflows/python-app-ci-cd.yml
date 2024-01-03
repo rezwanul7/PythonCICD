@@ -6,7 +6,7 @@ name: Python App CI/CD Workflow
 on:
   push:
     branches:
-      - develop-non-containerized
+      - enhance-ci-cd-noncon-2
 
 jobs:
   build:
