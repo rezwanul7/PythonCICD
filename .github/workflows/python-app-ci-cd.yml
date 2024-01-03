@@ -43,6 +43,6 @@ jobs:
           script: |
             cd ~/PythonCICD
             git pull
-            git checkout develop
+            git checkout enhance-ci-cd-noncon-2
             git status
             bash deploy.sh
