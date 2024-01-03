@@ -6,7 +6,7 @@ name: Python App CI/CD Workflow
 on:
   push:
     branches:
-      - enhance-ci-cd-noncon-2
+      - develop-non-containerized
 
 jobs:
   build:
@@ -43,6 +43,6 @@ jobs:
           script: |
             cd ~/PythonCICD
             git pull
-            git checkout enhance-ci-cd-noncon-2
+            git checkout develop-non-containerized
             git status
             bash deploy.sh
