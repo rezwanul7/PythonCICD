@@ -3,7 +3,8 @@ services:
   python-ci-cd-app:
     build:
       context: .
-      dockerfile: Dockerfile
+      args:
+        - BUILD_ENVIRONMENT=development
     ports:
       - "8080:8000"
     environment:

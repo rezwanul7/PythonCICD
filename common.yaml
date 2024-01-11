@@ -1,0 +1,4 @@
+version: "3"
+services:
+  python-ci-cd-app:
+    image: rezwanul7/python-cicd:${APP_TAG:-latest}
