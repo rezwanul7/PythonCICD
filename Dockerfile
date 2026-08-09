@@ -34,19 +34,13 @@ RUN pip install --user "poetry==$POETRY_VERSION" \
     && pip install -r requirements.txt
 
 # Stage 2: Copy only the necessary artifacts to the final image
-FROM python:3.11-slim as final
+FROM python:3.11-slim AS final
 
 # Set environment variables
 # Allow statements and log messages to immediately appear
 ENV PYTHONUNBUFFERED=1 \
     # Ensure scripts installed in .local are usable
     PATH="/home/appuser/.local/bin:${PATH}"
-
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get autoremove -y \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/*
 
 # Set a non-root user and switch to it
 RUN useradd --create-home appuser
@@ -61,3 +55,5 @@ COPY --chown=appuser:appuser . .
 
 # Expose the port that API will run on
 EXPOSE 8000
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

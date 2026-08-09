@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   python-ci-cd-app:
     build:
@@ -12,22 +11,9 @@ services:
       - "8080:8000"
     user: appuser
     volumes:
-#      - type: volume
-#        source: ./src
-#        target: /home/appuser/src
-#      - type: volume
-#        source: public
-#        target: /home/appuser/public
-
-        - ./src:/home/appuser/src
-        - ./public:/home/appuser/public
+      - ./src:/home/appuser/src
+      - ./public:/home/appuser/public
 
     # [Interactive Shell] Can be Used For Debugging Docker Scripts
     stdin_open: true # docker run -i
     tty: true        # docker run -t
-
-volumes:
-  src:
-    driver: local
-  public:
-    driver: local
