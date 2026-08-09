@@ -22,15 +22,15 @@ This is the branch for containerized app CI/CD workflow.
 ## Docker Compose
 For local development: 
 ```shell
-docker compose -f common.yaml -f compose.dev.yaml config
-docker compose -f common.yaml -f compose.dev.yaml up -d
+docker compose -f compose.yaml -f compose.dev.yaml config
+docker compose -f compose.yaml -f compose.dev.yaml up -d
 ```
 
 App will be running at 
 
 For staging: 
 ```shell
-docker compose -f common.yaml -f compose.stag.yaml config
-docker compose -f common.yaml -f compose.stag.yaml pull
-docker compose -f common.yaml -f compose.stag.yaml up -d
+docker compose -f compose.yaml -f compose.stag.yaml config
+docker compose -f compose.yaml -f compose.stag.yaml pull
+docker compose -f compose.yaml -f compose.stag.yaml up -d
 ```

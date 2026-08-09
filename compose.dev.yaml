@@ -1,13 +1,33 @@
-version: "3"
+version: "3.9"
 services:
   python-ci-cd-app:
     build:
       context: .
       args:
         - BUILD_ENVIRONMENT=development
-    ports:
-      - "8080:8000"
     environment:
       APP_ENV: development
+    command: [ "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
+    ports:
+      - "8080:8000"
+    user: appuser
     volumes:
-      - .:/app
+#      - type: volume
+#        source: ./src
+#        target: /home/appuser/src
+#      - type: volume
+#        source: public
+#        target: /home/appuser/public
+
+        - ./src:/home/appuser/src
+        - ./public:/home/appuser/public
+
+    # [Interactive Shell] Can be Used For Debugging Docker Scripts
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+
+volumes:
+  src:
+    driver: local
+  public:
+    driver: local
