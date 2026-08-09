@@ -46,6 +46,25 @@ Stop the application with:
 docker compose -f compose.yaml -f compose.dev.yaml down
 ```
 
+## Docker image validation
+
+The default Docker build is a production image containing only runtime dependencies:
+
+```shell
+docker build --check .
+docker build --tag python-cicd:local .
+docker run --rm --publish 8000:8000 python-cicd:local
+```
+
+Poetry and development tools such as pytest remain outside this image. To build and test the development variant:
+
+```shell
+docker build --build-arg BUILD_ENVIRONMENT=development --tag python-cicd:development .
+docker run --rm python-cicd:development python -m pytest -v
+```
+
+The builder and runtime stages are pinned to matching Python 3.11.15 Bookworm variants. When upgrading Python, update both `FROM` instructions together, rebuild both variants, and rerun the checks above.
+
 ## API endpoints
 
 | Method | Path | Purpose |
@@ -60,7 +79,7 @@ docker compose -f compose.yaml -f compose.dev.yaml down
 
 - `APP_ENV` controls the environment reported by `/`. It defaults to `UNKNOWN`, is `development` in the development overlay, and is `staging` in the staging overlay.
 - `APP_TAG` selects the Docker image tag in Compose and defaults to `latest`.
-- `BUILD_ENVIRONMENT` is a Docker build argument. The development build includes development dependencies; other builds omit them.
+- `BUILD_ENVIRONMENT` is a Docker build argument that defaults to `production`. Setting it to `development` includes development dependencies; other values omit them.
 
 No `.env` file or database configuration is required.
 
