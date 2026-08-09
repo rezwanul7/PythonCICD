@@ -38,7 +38,7 @@ docker compose -f compose.yaml -f compose.dev.yaml config
 docker compose -f compose.yaml -f compose.dev.yaml up --build
 ```
 
-The API is available at `http://localhost:8080`. The development overlay bind-mounts `src/` and `public/` and enables Uvicorn reload.
+The API is available at `http://localhost:5051`. The development overlay bind-mounts `src/` and `public/` and enables Uvicorn reload.
 
 Stop the application with:
 
@@ -94,7 +94,7 @@ Pushes to the `github-actions-cd-docker` branch, except documentation-only chang
 2. Builds and pushes `rezwanul7/python-cicd:latest` to Docker Hub.
 3. Copies the base and staging Compose files to `~/PythonCICD/` on the deployment host.
 4. Pulls and starts the staging service.
-5. Verifies `http://localhost:8080/health` from the deployment host.
+5. Verifies `http://localhost:5051/health` from the deployment host.
 
 Configure these GitHub Actions secrets:
 
@@ -110,5 +110,5 @@ The deployment host must have Docker Compose and `curl` installed. To deploy man
 ```shell
 docker compose -f compose.yaml -f compose.stag.yaml pull
 docker compose -f compose.yaml -f compose.stag.yaml up -d --remove-orphans
-curl --fail http://localhost:8080/health
+curl --fail http://localhost:5051/health
 ```

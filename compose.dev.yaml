@@ -8,7 +8,7 @@ services:
       APP_ENV: development
     command: [ "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
     ports:
-      - "8080:8000"
+      - "5051:8000"
     user: appuser
     volumes:
       - ./src:/home/appuser/src

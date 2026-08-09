@@ -1,6 +1,6 @@
 services:
   python-ci-cd-app:
     ports:
-      - "8080:8000"
+      - "5051:8000"
     environment:
       APP_ENV: staging

@@ -80,4 +80,4 @@ jobs:
             cd ~/PythonCICD
             docker compose -f compose.yaml -f compose.stag.yaml pull
             docker compose -f compose.yaml -f compose.stag.yaml up -d --remove-orphans
-            curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-connrefused http://localhost:8080/health
+            curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-connrefused http://localhost:5051/health
