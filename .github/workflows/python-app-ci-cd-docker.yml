@@ -7,8 +7,11 @@ on:
   push:
     branches:
       - github-actions-cd-docker
-
-    # ignore pull request events to paths matching **.md and .github/workflows/*yml
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches:
+      - github-actions-cd-docker
     paths-ignore:
       - '**.md'
 
@@ -81,6 +84,7 @@ jobs:
 
   publish_image:
     name: Publish immutable Docker image
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: build
     steps:
