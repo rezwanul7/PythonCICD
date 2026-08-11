@@ -1,0 +1,7 @@
+services:
+  python-ci-cd-app:
+    environment:
+      APP_ENV: production
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

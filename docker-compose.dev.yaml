@@ -1,0 +1,17 @@
+services:
+  python-ci-cd-app:
+    build:
+      context: .
+      args:
+        BUILD_ENVIRONMENT: development
+    environment:
+      APP_ENV: development
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "5051:8000"
+    user: appuser
+    volumes:
+      - ./src:/home/appuser/src
+      - ./public:/home/appuser/public
+    stdin_open: true
+    tty: true
