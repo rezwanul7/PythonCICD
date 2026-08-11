@@ -178,19 +178,17 @@ flowchart LR
     Apply --> Rollout[Kubernetes rolling update]
 ```
 
-CI currently performs:
+CI separates its responsibilities into three jobs:
 
-- Python tests, linting, and formatting checks.
-- Dockerfile validation.
-- Offline Kubernetes schema validation.
-- Validation of all three Docker Compose configurations.
-- Production image security and dependency checks.
-- Health-probe and environment smoke tests against the production image.
-- Tests against a development image.
-- On pushes, publication of the exact tested image under an immutable tag and
-  the branch's channel tag.
-- Publication of release metadata containing the repository digest and source
-  identity for later promotion.
+- `quality` runs Python tests, linting, and formatting checks.
+- `configuration` validates the Dockerfile, all Compose configurations, and the
+  offline Kubernetes schema.
+- `image` builds and tests the production and development images. On pushes it
+  publishes the exact tested production image and its release metadata.
+
+The detailed configuration, image-test, and publishing commands live in focused
+scripts under `scripts/ci/`. The `image` job depends on both preceding jobs, so
+publishing cannot begin unless every validation succeeds.
 
 Pull requests do not receive Docker Hub credentials and cannot publish images.
 Per-branch concurrency prevents older in-progress workflows from replacing a

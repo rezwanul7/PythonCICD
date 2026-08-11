@@ -179,16 +179,23 @@ channel tags as follows:
 | `staging` | `staging`   |
 | `main`    | `latest`    |
 
-The workflow:
+The workflow is organized into three jobs:
 
-1. Runs tests, Ruff, Dockerfile checks, image tests, and all three probe smoke tests.
-2. Combines and offline schema-validates the production Kubernetes manifests.
-3. Validates the development, staging, and production Compose configurations.
-4. On pushes only, tags and publishes the exact tested production image as
-   `sha-<full-git-sha>` and the branch's channel tag. Pull requests never log
-   into Docker Hub or publish images.
-5. Uploads `release-metadata.json`, containing the repository digest, source
-   commit, branch, immutable image, and channel image, as a workflow artifact.
+| Job             | Responsibility |
+|-----------------|----------------|
+| `quality`       | Runs pytest and Ruff checks |
+| `configuration` | Validates the Dockerfile, all Compose overlays, and Kubernetes schemas |
+| `image`         | Builds and tests both images, then publishes on pushes |
+
+The `image` job starts only after the other two jobs pass. Its production image
+is built once, tested, and then tagged for publishing without a rebuild. On
+pushes it publishes `sha-<full-git-sha>` and the branch's channel tag, then
+uploads `release-metadata.json` with the repository digest and source identity.
+Pull requests never log into Docker Hub or publish images.
+
+Detailed shell commands live under `scripts/ci/`: configuration validation,
+image testing, and image publishing each have a focused script that can also be
+run independently when diagnosing CI failures.
 
 Configure these GitHub Actions secrets:
 
