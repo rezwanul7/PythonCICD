@@ -2,8 +2,8 @@
 
 PythonCICD is a small FastAPI application demonstrating a containerized CI/CD
 workflow with Poetry, Docker Compose, GitHub Actions, Docker Hub, and Kubernetes.
-Docker Compose supports local development; plain Kubernetes manifests deploy
-the production application.
+Docker Compose supports local development plus staging and production checks;
+plain Kubernetes manifests deploy the production application.
 
 ## Requirements
 
@@ -50,16 +50,53 @@ Stop the application with:
 docker compose -f docker/docker-compose.yaml -f docker/docker-compose.dev.yaml down
 ```
 
+## Docker staging
+
+Validate and run the published staging channel image:
+
+```shell
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.staging.yaml config
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.staging.yaml up -d
+```
+
+The API is available at `http://localhost:8001` and reports
+`APP_ENV=staging`. Stop it with:
+
+```shell
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.staging.yaml down
+```
+
 ## Docker production
 
 Run the published production image with the production configuration:
 
 ```shell
-APP_TAG=latest docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml up -d
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml config
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml up -d
 ```
 
-The API is available at `http://localhost:8000`. Stop it with the same files and
-the `down` command.
+The API is available at `http://localhost:8000` and reports
+`APP_ENV=production`. Stop it with:
+
+```shell
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml down
+```
+
+Staging defaults to `rezwanul7/python-cicd:staging`, while production defaults
+to `rezwanul7/python-cicd:latest`. Set `APP_IMAGE` to use a complete immutable
+tag or digest instead. For example, in PowerShell:
+
+```powershell
+$env:APP_IMAGE = "rezwanul7/python-cicd:sha-<full-git-sha>"
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml up -d
+```
+
+In a POSIX-compatible shell:
+
+```shell
+APP_IMAGE=rezwanul7/python-cicd@sha256:<digest> \
+  docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml up -d
+```
 
 ## Docker image validation
 
@@ -101,8 +138,9 @@ dependency checks can evolve without changing the other probe contracts.
 ## Configuration
 
 - `APP_ENV` controls the environment reported by `/`. It defaults to `UNKNOWN`,
-  is `development` under Docker Compose, and is `production` in Kubernetes.
-- `APP_TAG` selects the Docker image tag in Compose and defaults to `latest`.
+  is set by each Docker Compose overlay, and is `production` in Kubernetes.
+- `APP_IMAGE` overrides the complete staging or production image reference. It
+  accepts a channel tag, immutable `sha-<full-git-sha>` tag, or image digest.
 - `BUILD_ENVIRONMENT` controls whether development dependencies enter the image.
 
 No `.env` file, persistent volume, or database configuration is required.
@@ -115,6 +153,14 @@ poetry run ruff check .
 poetry run ruff format --check .
 ```
 
+Validate all Docker Compose environments:
+
+```shell
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.dev.yaml config --quiet
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.staging.yaml config --quiet
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml config --quiet
+```
+
 Validate the Kubernetes manifests before applying them:
 
 ```shell
@@ -123,27 +169,45 @@ kubectl apply --dry-run=client -f k8s/production
 
 ## CI and image publishing
 
-Pushes to the `github-actions-cd-docker` branch, except documentation-only
-changes, trigger GitHub Actions. The workflow:
+Pull requests and pushes involving `dev`, `staging`, or `main`, except
+documentation-only changes, trigger GitHub Actions. Pushes map to Docker Hub
+channel tags as follows:
+
+| Branch    | Channel tag |
+|-----------|-------------|
+| `dev`     | `dev`       |
+| `staging` | `staging`   |
+| `main`    | `latest`    |
+
+The workflow:
 
 1. Runs tests, Ruff, Dockerfile checks, image tests, and all three probe smoke tests.
 2. Combines and offline schema-validates the production Kubernetes manifests.
-3. Publishes `rezwanul7/python-cicd:latest` and the immutable
-   `rezwanul7/python-cicd:sha-<full-git-sha>` image.
+3. Validates the development, staging, and production Compose configurations.
+4. On pushes only, tags and publishes the exact tested production image as
+   `sha-<full-git-sha>` and the branch's channel tag. Pull requests never log
+   into Docker Hub or publish images.
+5. Uploads `release-metadata.json`, containing the repository digest, source
+   commit, branch, immutable image, and channel image, as a workflow artifact.
 
 Configure these GitHub Actions secrets:
 
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_ACCESS_TOKEN`
 
-The local VM is intentionally deployed manually and does not need to be exposed
-to GitHub-hosted runners.
+Per-branch concurrency cancels an older in-progress run before it can overwrite
+a newer channel tag. The local VM is intentionally deployed manually and does
+not need to be exposed to GitHub-hosted runners.
+
+Creating Kubernetes environments and automating deployment or digest promotion
+is deferred to Phase 2. This phase does not change the existing Kubernetes
+manifests or live resources.
 
 ## Kubernetes production deployment
 
-After CI publishes an image, replace `sha-replace-with-full-git-sha` in
-`k8s/production/deployment.yaml` with its immutable `sha-<full-git-sha>` tag.
-Then deploy the three production manifests:
+After CI publishes the `main` branch image, replace
+`sha-replace-with-full-git-sha` in `k8s/production/deployment.yaml` with its
+immutable `sha-<full-git-sha>` tag. Then deploy the three production manifests:
 
 ```shell
 kubectl apply -f k8s/production

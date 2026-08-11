@@ -91,6 +91,7 @@ image is required for every code or static-content release.
 |-------------------------|----------------------------------------------|------------------------------|-------------------------------------|
 | Native development      | Poetry and Uvicorn                           | `localhost:8000`             | Local environment                   |
 | Docker development      | Docker Compose with source mounts and reload | `localhost:5051`             | `APP_ENV=development`               |
+| Docker staging check    | Docker Compose and published image           | `localhost:8001`             | `APP_ENV=staging`                   |
 | Docker production check | Docker Compose and published image           | `localhost:8000`             | `APP_ENV=production`                |
 | Kubernetes production   | Two Pods behind a ClusterIP Service          | Cluster-internal port `8000` | ConfigMap with `APP_ENV=production` |
 
@@ -157,17 +158,21 @@ application needs credentials.
 
 ## Delivery architecture
 
-The workflow in `.github/workflows/python-app-ci-cd-docker.yml` runs on pushes
-to `github-actions-cd-docker`, except documentation-only changes.
+The workflow in `.github/workflows/python-app-ci-cd-docker.yml` runs for pull
+requests and pushes involving `dev`, `staging`, or `main`, except
+documentation-only changes. Only pushes publish images. The branch channel
+mapping is `dev` to `dev`, `staging` to `staging`, and `main` to `latest`.
 
 ```mermaid
 flowchart LR
-    Push[Push release commit] --> Tests[Tests and Ruff checks]
+    Change[Pull request or push] --> Tests[Tests and Ruff checks]
     Tests --> Validation[Docker and Kubernetes validation]
     Validation --> ImageTests[Production and development image tests]
-    ImageTests --> Publish[Publish Docker image]
-    Publish --> Latest[latest tag]
-    Publish --> Immutable[sha-full-git-sha tag]
+    ImageTests --> Event{Push?}
+    Event -->|No| Complete[CI complete]
+    Event -->|Yes| Publish[Tag and publish tested image]
+    Publish --> Channel[dev, staging, or latest tag]
+    Publish --> Immutable[sha-full-git-sha tag and digest metadata]
     Immutable --> Select[Operator selects tag]
     Select --> Apply[kubectl apply]
     Apply --> Rollout[Kubernetes rolling update]
@@ -178,14 +183,22 @@ CI currently performs:
 - Python tests, linting, and formatting checks.
 - Dockerfile validation.
 - Offline Kubernetes schema validation.
+- Validation of all three Docker Compose configurations.
 - Production image security and dependency checks.
-- Health-probe smoke tests against the production image.
+- Health-probe and environment smoke tests against the production image.
 - Tests against a development image.
-- Publication of `latest` and `sha-<full-git-sha>` tags to Docker Hub.
+- On pushes, publication of the exact tested image under an immutable tag and
+  the branch's channel tag.
+- Publication of release metadata containing the repository digest and source
+  identity for later promotion.
 
-Kubernetes should use the immutable SHA tag. The operator records the selected
-version in `k8s/production/deployment.yaml`, reviews the change, and applies it
-manually. The complete procedure is in the
+Pull requests do not receive Docker Hub credentials and cannot publish images.
+Per-branch concurrency prevents older in-progress workflows from replacing a
+newer channel tag.
+
+Kubernetes production should use the immutable SHA tag published from `main`.
+The operator records the selected version in `k8s/production/deployment.yaml`,
+reviews the change, and applies it manually. The complete procedure is in the
 [Kubernetes deployment runbook](kubernetes-deployment-runbook.md).
 
 ## Security posture
@@ -249,6 +262,9 @@ known. Likely additions are:
 These are candidates, not commitments. Each addition should be driven by an
 explicit requirement and captured in this document or in a separate
 Architecture Decision Record when it introduces a meaningful trade-off.
+Kubernetes environment isolation and automated digest promotion are explicitly
+deferred to Phase 2; the Docker and CI foundation does not change the current
+Kubernetes topology.
 
 ## Keeping this document current
 

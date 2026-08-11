@@ -1,5 +1,6 @@
 services:
   python-ci-cd-app:
+    image: python-cicd:development
     build:
       context: ..
       args:

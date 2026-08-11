@@ -1,0 +1,8 @@
+services:
+  python-ci-cd-app:
+    image: ${APP_IMAGE:-rezwanul7/python-cicd:staging}
+    environment:
+      APP_ENV: staging
+    ports:
+      - "8001:8000"
+    restart: unless-stopped

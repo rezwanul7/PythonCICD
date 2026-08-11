@@ -7,7 +7,7 @@ release, update it, roll it back, and diagnose common failures.
 
 The production release flow is:
 
-1. Push application changes to the `github-actions-cd-docker` branch.
+1. Merge and push production application changes to the `main` branch.
 2. GitHub Actions tests the application and container image.
 3. GitHub Actions publishes `rezwanul7/python-cicd` to Docker Hub with both
    `latest` and an immutable `sha-<full-git-sha>` tag.
@@ -46,10 +46,10 @@ Do not continue if the current context points to the wrong cluster.
 
 ## Publish a production image
 
-Push the release commit to the branch used by the publishing workflow:
+Push the release commit to the production publishing branch:
 
 ```shell
-git push origin github-actions-cd-docker
+git push origin main
 ```
 
 Documentation-only pushes do not start the workflow. Wait for the **Python App
@@ -59,6 +59,9 @@ Docker Build** workflow to succeed. It publishes these tags:
 rezwanul7/python-cicd:latest
 rezwanul7/python-cicd:sha-<full-git-sha>
 ```
+
+The workflow also uploads `release-metadata.json`, which records the immutable
+tag and repository digest for the release.
 
 Use the `sha-<full-git-sha>` tag for Kubernetes. Immutable tags make it clear
 which code is running and make rollback reproducible. The full SHA for the
