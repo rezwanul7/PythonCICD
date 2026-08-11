@@ -157,3 +157,7 @@ local check, forward its port and open `http://localhost:8000/docs`:
 ```shell
 kubectl port-forward service/python-cicd 8000:8000
 ```
+
+For prerequisites, release verification, upgrades, rollbacks, troubleshooting,
+and options for public exposure, see the
+[Kubernetes deployment runbook](docs/kubernetes-deployment.md).
