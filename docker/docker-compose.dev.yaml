@@ -1,7 +1,7 @@
 services:
   python-ci-cd-app:
     build:
-      context: .
+      context: ..
       args:
         BUILD_ENVIRONMENT: development
     environment:
@@ -11,7 +11,7 @@ services:
       - "5051:8000"
     user: appuser
     volumes:
-      - ./src:/home/appuser/src
-      - ./public:/home/appuser/public
+      - ../src:/home/appuser/src
+      - ../public:/home/appuser/public
     stdin_open: true
     tty: true

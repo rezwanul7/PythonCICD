@@ -37,8 +37,8 @@ at `http://localhost:8000/docs`.
 Validate and start the merged development configuration:
 
 ```shell
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml config
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up --build
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.dev.yaml config
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.dev.yaml up --build
 ```
 
 The API is available at `http://localhost:5051`. The development overlay
@@ -47,7 +47,7 @@ bind-mounts `src/` and `public/` and enables Uvicorn reload.
 Stop the application with:
 
 ```shell
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down
+docker compose -f docker/docker-compose.yaml -f docker/docker-compose.dev.yaml down
 ```
 
 ## Docker production
@@ -55,7 +55,7 @@ docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down
 Run the published production image with the production configuration:
 
 ```shell
-APP_TAG=latest docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+APP_TAG=latest docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml up -d
 ```
 
 The API is available at `http://localhost:8000`. Stop it with the same files and
