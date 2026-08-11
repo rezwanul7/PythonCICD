@@ -44,16 +44,17 @@ jobs:
       - name: Render Kubernetes manifests
         run: |
           mkdir -p .tmp/k8s
-          kubectl kustomize k8s/base > .tmp/k8s/base.yaml
-          kubectl kustomize k8s/overlays/staging > .tmp/k8s/staging.yaml
+          for manifest in k8s/production/*.yaml; do
+            echo '---' >> .tmp/k8s/production.yaml
+            cat "$manifest" >> .tmp/k8s/production.yaml
+          done
       - name: Validate Kubernetes schemas
         uses: docker://ghcr.io/yannh/kubeconform:v0.7.0
         with:
           entrypoint: /kubeconform
           args: >-
             -strict -summary
-            /github/workspace/.tmp/k8s/base.yaml
-            /github/workspace/.tmp/k8s/staging.yaml
+            /github/workspace/.tmp/k8s/production.yaml
       - name: Build and validate production image
         run: |
           docker build --tag python-cicd:ci-production .

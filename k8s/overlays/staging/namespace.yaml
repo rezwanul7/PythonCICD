@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: python-cicd-staging
-  labels:
-    app.kubernetes.io/name: python-cicd
-    app.kubernetes.io/environment: staging
