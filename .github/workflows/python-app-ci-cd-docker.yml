@@ -1,0 +1,91 @@
+name: Python App Docker Build
+
+on:
+  push:
+    branches: [ dev, staging, main ]
+    paths-ignore: [ '**.md' ]
+  pull_request:
+    branches: [ dev, staging, main ]
+    paths-ignore: [ '**.md' ]
+
+concurrency:
+  group: python-cicd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOCKER_REPO: rezwanul7/python-cicd
+  PRODUCTION_IMAGE: python-cicd:ci-production
+
+jobs:
+  quality:
+    name: Python Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.2
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+      - name: Run tests
+        run: poetry run python -m pytest -v
+      - name: Run lint checks
+        run: |
+          poetry run ruff check .
+          poetry run ruff format --check .
+
+  configuration:
+    name: Configuration Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Validate Docker and Compose configuration
+        run: bash scripts/ci/validate-config.sh
+      - name: Validate Kubernetes schemas
+        uses: docker://ghcr.io/yannh/kubeconform:v0.7.0
+        with:
+          entrypoint: /kubeconform
+          args: >-
+            -strict -summary
+            /github/workspace/.tmp/k8s/production.yaml
+
+  image:
+    name: Image Test & Publish
+    runs-on: ubuntu-latest
+    needs: [ quality, configuration ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build and test images
+        run: bash scripts/ci/test-images.sh
+      - name: Login to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+      - name: Publish tested image
+        if: github.event_name == 'push'
+        run: bash scripts/ci/publish-image.sh
+      - name: Upload release metadata
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata-${{ github.sha }}
+          path: release-metadata.json
+          if-no-files-found: error
+          retention-days: 90

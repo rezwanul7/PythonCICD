@@ -7,10 +7,20 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.105.0"
-uvicorn = {extras = ["standard"], version = "^0.25.0"}
+fastapi = "^0.141.1"
+uvicorn = {version = "^0.52.1", extras = ["standard"]}
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.1.1"
+httpx = "^0.28.1"
+ruff = "^0.16.2"
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.5.1"]
 build-backend = "poetry.core.masonry.api"
