@@ -1,3 +1,4 @@
+import socket
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,7 @@ def test_get_root_uses_default_environment_without_writing_public_file(
         "name": "PythonCICD",
         "version": "0.1.0",
         "environment": "UNKNOWN",
+        "served_by": socket.gethostname(),
     }
     assert "sys_user" not in response.json()
     assert demo_file.read_text() == original_content

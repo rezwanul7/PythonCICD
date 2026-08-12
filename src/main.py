@@ -1,6 +1,5 @@
 import os
 import socket
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
