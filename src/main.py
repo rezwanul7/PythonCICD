@@ -1,4 +1,5 @@
 import os
+import socket
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -36,4 +37,5 @@ def read_root():
         "name": APP_NAME,
         "version": APP_VERSION,
         "environment": os.getenv("APP_ENV", "UNKNOWN"),
+        "served_by": socket.gethostname(),
     }

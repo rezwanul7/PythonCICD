@@ -218,7 +218,7 @@ immutable `sha-<full-git-sha>` tag. Then deploy the three production manifests:
 
 ```shell
 kubectl apply -f k8s/production
-kubectl rollout status deployment/python-cicd --timeout=120s
+kubectl rollout status deployment/python-cicd-api --timeout=120s
 kubectl get pods,service
 ```
 
@@ -226,7 +226,7 @@ The Service is intentionally internal (`ClusterIP`). For a beginner-friendly
 local check, forward its port and open `http://localhost:8000/docs`:
 
 ```shell
-kubectl port-forward service/python-cicd 8000:8000
+kubectl port-forward service/python-cicd-api-service 8000:8000
 ```
 
 For prerequisites, release verification, upgrades, rollbacks, troubleshooting,
