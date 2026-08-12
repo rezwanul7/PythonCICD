@@ -14,8 +14,11 @@ The production release flow is:
 4. Set that immutable tag in `k8s/production/deployment.yaml`.
 5. Apply the Kubernetes manifests and verify the rollout.
 
-The manifests create two application replicas, a ConfigMap, and an internal
-`ClusterIP` Service in the current namespace. All commands below use the
+The manifests create two application replicas, a ConfigMap, an internal
+`ClusterIP` Service, and an HTTP Ingress in the current namespace. The Ingress
+requires an Ingress controller already installed in the cluster. It currently
+has no hostname or TLS configuration, so it can be reached through the
+controller's external address for temporary testing. All commands below use the
 `default` namespace unless `--namespace` or the current kubectl context says
 otherwise.
 
@@ -26,6 +29,7 @@ Before deploying, confirm that you have:
 - Access to a running Kubernetes cluster.
 - `kubectl` installed and configured for the target cluster.
 - Permission to create Deployments, Services, ConfigMaps, Pods, and ReplicaSets.
+- An installed and externally reachable Ingress controller.
 - A successful image-publishing run in GitHub Actions.
 - Access from the cluster to `docker.io/rezwanul7/python-cicd`.
 
@@ -143,18 +147,25 @@ The expected state is:
 - Deployment `python-cicd-api` reports `2/2` ready replicas.
 - Both application Pods are `Running` and ready.
 - Service `python-cicd-api-service` is a `ClusterIP` listening on port `8000`.
+- Ingress `python-cicd-api` routes HTTP traffic to the internal Service.
 - The Deployment image matches the selected immutable SHA tag.
 
-The Service is intentionally not public. Forward it to the local machine for a
-smoke test:
+Get the Ingress address and smoke-test it over HTTP:
+
+```shell
+kubectl get ingress python-cicd-api
+curl http://<ingress-address>/health/startup
+curl http://<ingress-address>/health/live
+curl http://<ingress-address>/health/ready
+curl http://<ingress-address>/
+```
+
+If the controller has not yet been assigned an address, or you are testing from
+an environment that cannot reach it, forward the internal Service to the local
+machine instead:
 
 ```shell
 kubectl port-forward service/python-cicd-api-service 8000:8000
-```
-
-Keep that command running and, in another terminal, check the application:
-
-```shell
 curl http://localhost:8000/health/startup
 curl http://localhost:8000/health/live
 curl http://localhost:8000/health/ready
@@ -255,19 +266,17 @@ A timeout does not automatically remove the attempted release. Inspect the Pods
 and events to find the cause. If the new release is faulty, use `kubectl rollout
 undo` and verify the rollback.
 
-## Making the service public
+## Ingress, DNS, and TLS
 
-The current Service is `ClusterIP`, so it can only be reached from inside the
-cluster or through port forwarding. A public production endpoint normally also
-requires:
+The current Ingress sends all HTTP requests it receives to the API Service and
+does not specify a hostname. This permits temporary access through the Ingress
+controller's address without DNS. It does not configure TLS, so do not send
+sensitive traffic through this endpoint.
 
-- An Ingress controller or a cloud `LoadBalancer` Service.
-- An Ingress or Gateway resource for the application hostname.
-- DNS pointing the hostname to the public endpoint.
-- A TLS certificate and HTTPS configuration.
-
-These components are cluster- and provider-specific and are intentionally not
-part of the basic manifests.
+Before production use, add a hostname rule, point DNS at the controller's
+external address, and configure a TLS certificate and HTTPS redirect. Those
+settings are intentionally deferred because the exact configuration depends on
+the cluster's Ingress controller and DNS provider.
 
 ## Deployment checklist
 
@@ -286,6 +295,7 @@ kubectl rollout status deployment/python-cicd-api --timeout=120s
 kubectl get deployment,pods,service
 kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 
-# Smoke-test through the internal Service
-kubectl port-forward service/python-cicd-api-service 8000:8000
+# Smoke-test through the Ingress controller address
+kubectl get ingress python-cicd-api
+curl http://<ingress-address>/health/ready
 ```
