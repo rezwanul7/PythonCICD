@@ -103,14 +103,16 @@ Kubernetes production topology.
 The production manifests under `k8s/production` create three resources in the
 current namespace:
 
-| Resource   | Name          | Responsibility                                                  |
-|------------|---------------|-----------------------------------------------------------------|
-| ConfigMap  | `python-cicd` | Supplies non-sensitive application configuration                |
-| Deployment | `python-cicd` | Maintains two application replicas and performs rolling updates |
-| Service    | `python-cicd` | Provides stable, internal routing to ready Pods                 |
+| Resource   | Name                      | Responsibility                                                  |
+|------------|---------------------------|-----------------------------------------------------------------|
+| ConfigMap  | `python-cicd-api-config`  | Supplies non-sensitive application configuration                |
+| Deployment | `python-cicd-api`         | Maintains two application replicas and performs rolling updates |
+| Service    | `python-cicd-api-service` | Provides stable, internal routing to ready Pods                 |
 
-The Deployment uses the label `app.kubernetes.io/name: python-cicd` to connect
-the Deployment selector, Pod labels, and Service selector.
+The resources keep `app.kubernetes.io/name: python-cicd` as their shared
+application identity. The Deployment selector, Pod labels, and Service selector
+also use `app.kubernetes.io/instance: production` and
+`app.kubernetes.io/component: api`, making the routing boundary explicit.
 
 ### Availability and lifecycle
 

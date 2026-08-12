@@ -1,9 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: python-cicd
+  name: python-cicd-api
   labels:
     app.kubernetes.io/name: python-cicd
+    app.kubernetes.io/instance: production
+    app.kubernetes.io/component: api
 spec:
   replicas: 2
   strategy:
@@ -14,10 +16,14 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: python-cicd
+      app.kubernetes.io/instance: production
+      app.kubernetes.io/component: api
   template:
     metadata:
       labels:
         app.kubernetes.io/name: python-cicd
+        app.kubernetes.io/instance: production
+        app.kubernetes.io/component: api
     spec:
       securityContext:
         runAsNonRoot: true
@@ -26,7 +32,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: python-cicd
+        - name: api
           image: rezwanul7/python-cicd:sha-replace-with-full-git-sha
           imagePullPolicy: IfNotPresent
           ports:
@@ -35,7 +41,7 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: python-cicd
+                name: python-cicd-api-config
           startupProbe:
             httpGet:
               path: /health/startup
@@ -71,9 +77,9 @@ spec:
               drop:
                 - ALL
           volumeMounts:
-            - name: tmp
+            - name: temporary-files
               mountPath: /tmp
       volumes:
-        - name: tmp
+        - name: temporary-files
           emptyDir: {}
       terminationGracePeriodSeconds: 30

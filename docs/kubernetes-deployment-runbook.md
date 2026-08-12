@@ -110,10 +110,24 @@ not mean validation failed.
 
 ```shell
 kubectl apply -f k8s/production
-kubectl rollout status deployment/python-cicd --timeout=120s
+kubectl rollout status deployment/python-cicd-api --timeout=120s
 ```
 
 The rollout is successful when both replicas become available.
+
+### Upgrading from the legacy resource names
+
+Older versions of these manifests named the ConfigMap, Deployment, and Service
+`python-cicd`. Applying the renamed manifests creates new resources; it does not
+rename or replace the old ones. After `python-cicd-api` reports `2/2` ready
+replicas and the smoke test below succeeds, remove the legacy resources:
+
+```shell
+kubectl delete deployment/python-cicd service/python-cicd configmap/python-cicd
+```
+
+Skip this cleanup on a first deployment or when the legacy resources do not
+exist.
 
 ## Verify the deployment
 
@@ -121,21 +135,21 @@ Inspect the workload and Service:
 
 ```shell
 kubectl get deployment,pods,service
-kubectl get deployment python-cicd -o jsonpath='{.spec.template.spec.containers[0].image}'
+kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 
 The expected state is:
 
-- Deployment `python-cicd` reports `2/2` ready replicas.
+- Deployment `python-cicd-api` reports `2/2` ready replicas.
 - Both application Pods are `Running` and ready.
-- Service `python-cicd` is a `ClusterIP` listening on port `8000`.
+- Service `python-cicd-api-service` is a `ClusterIP` listening on port `8000`.
 - The Deployment image matches the selected immutable SHA tag.
 
 The Service is intentionally not public. Forward it to the local machine for a
 smoke test:
 
 ```shell
-kubectl port-forward service/python-cicd 8000:8000
+kubectl port-forward service/python-cicd-api-service 8000:8000
 ```
 
 Keep that command running and, in another terminal, check the application:
@@ -162,7 +176,7 @@ For each release:
 kubectl apply --dry-run=client -f k8s/production
 kubectl diff -f k8s/production
 kubectl apply -f k8s/production
-kubectl rollout status deployment/python-cicd --timeout=120s
+kubectl rollout status deployment/python-cicd-api --timeout=120s
 kubectl get pods
 ```
 
@@ -174,20 +188,20 @@ the replacement Pods become ready.
 View the Deployment's rollout history:
 
 ```shell
-kubectl rollout history deployment/python-cicd
+kubectl rollout history deployment/python-cicd-api
 ```
 
 Undo the most recent rollout:
 
 ```shell
-kubectl rollout undo deployment/python-cicd
-kubectl rollout status deployment/python-cicd --timeout=120s
+kubectl rollout undo deployment/python-cicd-api
+kubectl rollout status deployment/python-cicd-api --timeout=120s
 ```
 
 To restore a specific revision:
 
 ```shell
-kubectl rollout undo deployment/python-cicd --to-revision=<revision-number>
+kubectl rollout undo deployment/python-cicd-api --to-revision=<revision-number>
 ```
 
 After an emergency rollback, update `k8s/production/deployment.yaml` to the
@@ -200,7 +214,7 @@ Start with these commands:
 
 ```shell
 kubectl get pods
-kubectl describe deployment python-cicd
+kubectl describe deployment python-cicd-api
 kubectl describe pod <pod-name>
 kubectl logs <pod-name>
 kubectl get events --sort-by=.metadata.creationTimestamp
@@ -268,10 +282,10 @@ kubectl diff -f k8s/production
 kubectl apply -f k8s/production
 
 # Verify the release
-kubectl rollout status deployment/python-cicd --timeout=120s
+kubectl rollout status deployment/python-cicd-api --timeout=120s
 kubectl get deployment,pods,service
-kubectl get deployment python-cicd -o jsonpath='{.spec.template.spec.containers[0].image}'
+kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 
 # Smoke-test through the internal Service
-kubectl port-forward service/python-cicd 8000:8000
+kubectl port-forward service/python-cicd-api-service 8000:8000
 ```
