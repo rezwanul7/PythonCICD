@@ -1,6 +1,6 @@
 services:
   python-ci-cd-app:
-    image: rezwanul7/python-cicd:${APP_TAG:-latest}
+    image: ${APP_IMAGE:-rezwanul7/python-cicd:latest}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready')"]
       interval: 10s

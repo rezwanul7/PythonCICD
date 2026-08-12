@@ -1,0 +1,291 @@
+# Kubernetes Deployment Runbook
+
+This runbook describes how to deploy PythonCICD to Kubernetes, verify the
+release, update it, roll it back, and diagnose common failures.
+
+## Deployment flow
+
+The production release flow is:
+
+1. Merge and push production application changes to the `main` branch.
+2. GitHub Actions tests the application and container image.
+3. GitHub Actions publishes `rezwanul7/python-cicd` to Docker Hub with both
+   `latest` and an immutable `sha-<full-git-sha>` tag.
+4. Set that immutable tag in `k8s/production/deployment.yaml`.
+5. Apply the Kubernetes manifests and verify the rollout.
+
+The manifests create two application replicas, a ConfigMap, and an internal
+`ClusterIP` Service in the current namespace. All commands below use the
+`default` namespace unless `--namespace` or the current kubectl context says
+otherwise.
+
+## Prerequisites
+
+Before deploying, confirm that you have:
+
+- Access to a running Kubernetes cluster.
+- `kubectl` installed and configured for the target cluster.
+- Permission to create Deployments, Services, ConfigMaps, Pods, and ReplicaSets.
+- A successful image-publishing run in GitHub Actions.
+- Access from the cluster to `docker.io/rezwanul7/python-cicd`.
+
+The GitHub repository must contain these Actions secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_ACCESS_TOKEN`
+
+Check the active cluster before making changes:
+
+```shell
+kubectl config current-context
+kubectl cluster-info
+kubectl get nodes
+```
+
+Do not continue if the current context points to the wrong cluster.
+
+## Publish a production image
+
+Push the release commit to the production publishing branch:
+
+```shell
+git push origin main
+```
+
+Documentation-only pushes do not start the workflow. Wait for the **Python App
+Docker Build** workflow to succeed. It publishes these tags:
+
+```text
+rezwanul7/python-cicd:latest
+rezwanul7/python-cicd:sha-<full-git-sha>
+```
+
+The workflow also uploads `release-metadata.json`, which records the immutable
+tag and repository digest for the release.
+
+Use the `sha-<full-git-sha>` tag for Kubernetes. Immutable tags make it clear
+which code is running and make rollback reproducible. The full SHA for the
+checked-out commit is available with:
+
+```shell
+git rev-parse HEAD
+```
+
+## First deployment
+
+### 1. Select the image
+
+In `k8s/production/deployment.yaml`, replace:
+
+```yaml
+image: rezwanul7/python-cicd:sha-replace-with-full-git-sha
+```
+
+with the immutable tag published by the successful workflow, for example:
+
+```yaml
+image: rezwanul7/python-cicd:sha-0123456789abcdef0123456789abcdef01234567
+```
+
+Commit this manifest change so the repository records the deployed version.
+
+### 2. Validate the manifests
+
+Run client-side validation before changing the cluster:
+
+```shell
+kubectl apply --dry-run=client -f k8s/production
+```
+
+Review the rendered changes, especially for a shared or production cluster:
+
+```shell
+kubectl diff -f k8s/production
+```
+
+`kubectl diff` normally exits with status `1` when differences exist; that does
+not mean validation failed.
+
+### 3. Apply the manifests
+
+```shell
+kubectl apply -f k8s/production
+kubectl rollout status deployment/python-cicd-api --timeout=120s
+```
+
+The rollout is successful when both replicas become available.
+
+### Upgrading from the legacy resource names
+
+Older versions of these manifests named the ConfigMap, Deployment, and Service
+`python-cicd`. Applying the renamed manifests creates new resources; it does not
+rename or replace the old ones. After `python-cicd-api` reports `2/2` ready
+replicas and the smoke test below succeeds, remove the legacy resources:
+
+```shell
+kubectl delete deployment/python-cicd service/python-cicd configmap/python-cicd
+```
+
+Skip this cleanup on a first deployment or when the legacy resources do not
+exist.
+
+## Verify the deployment
+
+Inspect the workload and Service:
+
+```shell
+kubectl get deployment,pods,service
+kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
+```
+
+The expected state is:
+
+- Deployment `python-cicd-api` reports `2/2` ready replicas.
+- Both application Pods are `Running` and ready.
+- Service `python-cicd-api-service` is a `ClusterIP` listening on port `8000`.
+- The Deployment image matches the selected immutable SHA tag.
+
+The Service is intentionally not public. Forward it to the local machine for a
+smoke test:
+
+```shell
+kubectl port-forward service/python-cicd-api-service 8000:8000
+```
+
+Keep that command running and, in another terminal, check the application:
+
+```shell
+curl http://localhost:8000/health/startup
+curl http://localhost:8000/health/live
+curl http://localhost:8000/health/ready
+curl http://localhost:8000/
+```
+
+Interactive API documentation is available at <http://localhost:8000/docs>.
+
+## Deploy a new version
+
+For each release:
+
+1. Wait for CI to publish the new `sha-<full-git-sha>` image.
+2. Change the image tag in `k8s/production/deployment.yaml`.
+3. Validate, review, and apply the manifests.
+4. Wait for the rolling update and repeat the verification checks.
+
+```shell
+kubectl apply --dry-run=client -f k8s/production
+kubectl diff -f k8s/production
+kubectl apply -f k8s/production
+kubectl rollout status deployment/python-cicd-api --timeout=120s
+kubectl get pods
+```
+
+The rolling-update configuration keeps the existing replicas available while
+the replacement Pods become ready.
+
+## Roll back a release
+
+View the Deployment's rollout history:
+
+```shell
+kubectl rollout history deployment/python-cicd-api
+```
+
+Undo the most recent rollout:
+
+```shell
+kubectl rollout undo deployment/python-cicd-api
+kubectl rollout status deployment/python-cicd-api --timeout=120s
+```
+
+To restore a specific revision:
+
+```shell
+kubectl rollout undo deployment/python-cicd-api --to-revision=<revision-number>
+```
+
+After an emergency rollback, update `k8s/production/deployment.yaml` to the
+restored image tag and commit it. Otherwise, the next `kubectl apply` will
+reintroduce the newer tag from the repository.
+
+## Troubleshooting
+
+Start with these commands:
+
+```shell
+kubectl get pods
+kubectl describe deployment python-cicd-api
+kubectl describe pod <pod-name>
+kubectl logs <pod-name>
+kubectl get events --sort-by=.metadata.creationTimestamp
+```
+
+### `ImagePullBackOff` or `ErrImagePull`
+
+- Confirm the full SHA tag exists in Docker Hub.
+- Check the image name and tag in `k8s/production/deployment.yaml`.
+- Confirm that cluster nodes can reach Docker Hub.
+- If the Docker Hub repository is private, create a registry Secret in the same
+  namespace and reference it through `imagePullSecrets` in the Pod template.
+
+### `CrashLoopBackOff`
+
+Read both the current and previous container logs:
+
+```shell
+kubectl logs <pod-name>
+kubectl logs <pod-name> --previous
+```
+
+Also inspect the Pod events and exit code with `kubectl describe pod`.
+
+### Readiness or liveness probe failures
+
+The probes call `/health/startup`, `/health/ready`, and `/health/live` on port
+`8000`. Check the Pod logs, then test a specific Pod directly:
+
+```shell
+kubectl port-forward pod/<pod-name> 8000:8000
+curl http://localhost:8000/health/ready
+```
+
+### Rollout timeout
+
+A timeout does not automatically remove the attempted release. Inspect the Pods
+and events to find the cause. If the new release is faulty, use `kubectl rollout
+undo` and verify the rollback.
+
+## Making the service public
+
+The current Service is `ClusterIP`, so it can only be reached from inside the
+cluster or through port forwarding. A public production endpoint normally also
+requires:
+
+- An Ingress controller or a cloud `LoadBalancer` Service.
+- An Ingress or Gateway resource for the application hostname.
+- DNS pointing the hostname to the public endpoint.
+- A TLS certificate and HTTPS configuration.
+
+These components are cluster- and provider-specific and are intentionally not
+part of the basic manifests.
+
+## Deployment checklist
+
+```shell
+# Confirm the target cluster
+kubectl config current-context
+kubectl get nodes
+
+# After setting the published SHA tag in deployment.yaml
+kubectl apply --dry-run=client -f k8s/production
+kubectl diff -f k8s/production
+kubectl apply -f k8s/production
+
+# Verify the release
+kubectl rollout status deployment/python-cicd-api --timeout=120s
+kubectl get deployment,pods,service
+kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+# Smoke-test through the internal Service
+kubectl port-forward service/python-cicd-api-service 8000:8000
+```

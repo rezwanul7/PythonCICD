@@ -1,104 +1,91 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
 name: Python App Docker Build
 
 on:
   push:
-    branches:
-      - github-actions-cd-docker
+    branches: [ dev, staging, main ]
+    paths-ignore: [ '**.md' ]
+  pull_request:
+    branches: [ dev, staging, main ]
+    paths-ignore: [ '**.md' ]
 
-    # ignore pull request events to paths matching **.md and .github/workflows/*yml
-    paths-ignore:
-      - '**.md'
+concurrency:
+  group: python-cicd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOCKER_REPO: rezwanul7/python-cicd
+  PRODUCTION_IMAGE: python-cicd:ci-production
 
 jobs:
-  build:
-    name: Build & Test
+  quality:
+    name: Python Quality
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
           version: 1.8.2
-      - name: Install Project Dependencies
+      - name: Install dependencies
         run: poetry install --no-interaction --no-root
-      - name: Run Tests
+      - name: Run tests
         run: poetry run python -m pytest -v
-      - name: Run Ruff Lint
-        run: poetry run ruff check .
-      - name: Check Ruff Formatting
-        run: poetry run ruff format --check .
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Check Dockerfile
-        run: docker build --check .
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-      - name: Render Kubernetes manifests
+      - name: Run lint checks
         run: |
-          mkdir -p .tmp/k8s
-          kubectl kustomize k8s/base > .tmp/k8s/base.yaml
-          kubectl kustomize k8s/overlays/staging > .tmp/k8s/staging.yaml
+          poetry run ruff check .
+          poetry run ruff format --check .
+
+  configuration:
+    name: Configuration Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Validate Docker and Compose configuration
+        run: bash scripts/ci/validate-config.sh
       - name: Validate Kubernetes schemas
         uses: docker://ghcr.io/yannh/kubeconform:v0.7.0
         with:
           entrypoint: /kubeconform
           args: >-
             -strict -summary
-            /github/workspace/.tmp/k8s/base.yaml
-            /github/workspace/.tmp/k8s/staging.yaml
-      - name: Build and validate production image
-        run: |
-          docker build --tag python-cicd:ci-production .
-          docker run --rm python-cicd:ci-production sh -c \
-            'test "$(id -un)" = appuser && test "$(id -u)" = 10001'
-          docker run --rm python-cicd:ci-production python -c \
-            "import importlib.util; import fastapi, uvicorn; assert importlib.util.find_spec('poetry') is None; assert importlib.util.find_spec('pytest') is None"
-      - name: Smoke-test production image
-        run: |
-          container_id="$(docker run --detach --publish 127.0.0.1:8000:8000 python-cicd:ci-production)"
-          trap 'docker rm --force "$container_id" >/dev/null 2>&1 || true' EXIT
-          for probe in startup live ready; do
-            curl --fail --silent --show-error --retry 10 --retry-delay 2 \
-              --retry-connrefused --retry-all-errors \
-              "http://127.0.0.1:8000/health/$probe"
-          done
-      - name: Build and test development image
-        run: |
-          docker build \
-            --build-arg BUILD_ENVIRONMENT=development \
-            --tag python-cicd:ci-development .
-          docker run --rm python-cicd:ci-development python -m pytest -v
+            /github/workspace/.tmp/k8s/production.yaml
 
-
-  publish_image:
-    name: Publish immutable Docker image
+  image:
+    name: Image Test & Publish
     runs-on: ubuntu-latest
-    needs: build
+    needs: [ quality, configuration ]
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
+      - name: Build and test images
+        run: bash scripts/ci/test-images.sh
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
-
-      - name: Build and push Docker image
-        env:
-          DOCKER_REPO: rezwanul7/python-cicd
-        run: |
-          docker buildx build \
-            --file Dockerfile \
-            --tag $DOCKER_REPO:latest \
-            --tag $DOCKER_REPO:sha-${{ github.sha }} \
-            --push .
+      - name: Publish tested image
+        if: github.event_name == 'push'
+        run: bash scripts/ci/publish-image.sh
+      - name: Upload release metadata
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-metadata-${{ github.sha }}
+          path: release-metadata.json
+          if-no-files-found: error
+          retention-days: 90
