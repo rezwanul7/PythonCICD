@@ -38,7 +38,18 @@ The GitHub repository must contain these Actions secrets:
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_ACCESS_TOKEN`
 
-### Connect from Windows
+### Configure kubectl access from Windows
+
+If K3s is running inside an Ubuntu VM but you want to manage the cluster from
+your Windows host, Windows `kubectl` needs the credentials and API server
+details stored in the K3s kubeconfig. The default kubeconfig points to
+`127.0.0.1`, which refers to the VM itself, so copy the file to Windows and
+replace that address with the control-plane VM's reachable IP.
+
+```mermaid
+flowchart LR
+    W["Windows host<br/>kubectl"] -->|"HTTPS :6443"| K["Ubuntu VM<br/>K3s control plane<br/>192.168.50.10"]
+```
 
 K3s writes its admin kubeconfig to `/etc/rancher/k3s/k3s.yaml`. On the
 control-plane VM, create a temporary user-readable copy:
