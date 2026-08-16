@@ -38,6 +38,46 @@ The GitHub repository must contain these Actions secrets:
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_ACCESS_TOKEN`
 
+### Connect from Windows
+
+K3s writes its admin kubeconfig to `/etc/rancher/k3s/k3s.yaml`. On the
+control-plane VM, create a temporary user-readable copy:
+
+```bash
+sudo cp /etc/rancher/k3s/k3s.yaml "$HOME/k3s-lab.yaml"
+sudo chown "$USER:$USER" "$HOME/k3s-lab.yaml"
+chmod 600 "$HOME/k3s-lab.yaml"
+```
+
+From Windows PowerShell, copy it into the local kubeconfig directory:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.kube" | Out-Null
+scp <user>@192.168.50.10:~/k3s-lab.yaml "$env:USERPROFILE\.kube\k3s-lab.yaml"
+```
+
+In the copied Windows file, change:
+
+```text
+server: https://127.0.0.1:6443
+```
+
+to:
+
+```text
+server: https://192.168.50.10:6443
+```
+
+With `kubectl` installed, run in Windows PowerShell:
+
+```powershell
+$env:KUBECONFIG = "$env:USERPROFILE\.kube\k3s-lab.yaml"
+kubectl get nodes -o wide
+```
+
+The kubeconfig grants cluster-admin access. Keep it private and delete the
+temporary copy from the Ubuntu user's home directory after the transfer.
+
 Check the active cluster before making changes:
 
 ```shell
