@@ -48,6 +48,7 @@ WORKDIR /home/appuser
 
 # Application files remain root-owned and read-only to the runtime user.
 COPY . .
+RUN chown appuser:appuser public/demo.txt
 
 USER appuser
 
