@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.staticfiles import StaticFiles
 
-from src.routers import health, items
+from src.routers import health, items, test_rw
 
 APP_NAME = "PythonCICD"
 APP_VERSION = "0.1.0"
@@ -28,6 +28,7 @@ app.state.ready = False
 app.mount("/public", StaticFiles(directory="public"), name="public")
 app.include_router(health.router)
 app.include_router(items.router)
+app.include_router(test_rw.router)
 
 
 @app.get("/")

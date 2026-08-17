@@ -1,5 +1,6 @@
 import socket
 from pathlib import Path
+from re import fullmatch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -103,7 +104,46 @@ def test_static_demo_file_is_served(client):
     response = client.get("/public/demo.txt")
 
     assert response.status_code == 200
-    assert response.text == Path("public/demo.txt").read_text()
+    assert response.content == Path("public/demo.txt").read_bytes()
+
+
+def test_test_rw_router_reads_and_writes_public_file(client):
+    demo_file = Path("public/demo.txt")
+    original_bytes = demo_file.read_bytes()
+    original_content = demo_file.read_text(encoding="utf-8")
+    updated_content = "Updated through the test-rw router."
+
+    try:
+        read_response = client.get("/test-rw/public")
+        write_response = client.put(
+            "/test-rw/public", json={"content": updated_content}
+        )
+
+        assert read_response.status_code == 200
+        assert read_response.json() == {"content": original_content}
+        assert write_response.status_code == 200
+        assert write_response.json() == {"content": updated_content}
+        assert demo_file.read_text(encoding="utf-8") == updated_content
+    finally:
+        demo_file.write_bytes(original_bytes)
+
+
+def test_test_rw_router_writes_hostname_and_timestamp_without_content(client):
+    demo_file = Path("public/demo.txt")
+    original_bytes = demo_file.read_bytes()
+
+    try:
+        response = client.put("/test-rw/public", json={})
+
+        assert response.status_code == 200
+        pattern = (
+            rf"{socket.gethostname()} - "
+            r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}"
+        )
+        assert fullmatch(pattern, response.json()["content"])
+        assert demo_file.read_text(encoding="utf-8") == response.json()["content"]
+    finally:
+        demo_file.write_bytes(original_bytes)
 
 
 def test_info_endpoint_is_removed(client):
