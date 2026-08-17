@@ -216,13 +216,19 @@ manifests or live resources.
 
 After CI publishes the `main` branch image, replace
 `sha-replace-with-full-git-sha` in `k8s/production/deployment.yaml` with its
-immutable `sha-<full-git-sha>` tag. Then deploy the three production manifests:
+immutable `sha-<full-git-sha>` tag. Then deploy the production manifests:
 
 ```shell
 kubectl apply -f k8s/production
 kubectl rollout status deployment/python-cicd-api --timeout=120s
 kubectl get pods,service
 ```
+
+The `test-rw` endpoint writes to the `python-cicd-public-data` PersistentVolume
+Claim. The current K3s `local-path` storage is durable across Pod replacement
+and shared by Pods on this single-node cluster. It is not suitable for
+multi-node shared storage; use an RWX-capable storage provider (such as NFS,
+Longhorn, or Ceph) before expanding the cluster.
 
 The Service is intentionally internal (`ClusterIP`). For a beginner-friendly
 local check, forward its port and open `http://localhost:8000/docs`:

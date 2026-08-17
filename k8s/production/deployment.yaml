@@ -29,8 +29,22 @@ spec:
         runAsNonRoot: true
         runAsUser: 10001
         runAsGroup: 10001
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: initialize-public-file
+          image: rezwanul7/python-cicd:sha-replace-with-full-git-sha
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              test -f /writable-public/demo.txt || cp
+              /home/appuser/public/demo.txt /writable-public/demo.txt
+          volumeMounts:
+            - name: public-data
+              mountPath: /writable-public
       containers:
         - name: api
           image: rezwanul7/python-cicd:sha-replace-with-full-git-sha
@@ -79,7 +93,12 @@ spec:
           volumeMounts:
             - name: temporary-files
               mountPath: /tmp
+            - name: public-data
+              mountPath: /home/appuser/public
       volumes:
         - name: temporary-files
           emptyDir: {}
+        - name: public-data
+          persistentVolumeClaim:
+            claimName: python-cicd-public-data
       terminationGracePeriodSeconds: 30
