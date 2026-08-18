@@ -13,9 +13,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    browser_host = (
-        "localhost" if args.host in {"0.0.0.0", "::"} else args.host
-    )
+    browser_host = "localhost" if args.host in {"0.0.0.0", "::"} else args.host
     base_url = f"http://{browser_host}:{args.port}"
 
     print(f"API:      {base_url}/", flush=True)
