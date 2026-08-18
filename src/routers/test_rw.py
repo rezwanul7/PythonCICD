@@ -11,22 +11,33 @@ PUBLIC_DEMO_FILE = Path(__file__).resolve().parents[2] / "public" / "demo.txt"
 
 
 class PublicContent(BaseModel):
-    content: str | None = None
+    content: list[str] | None = None
 
 
 @router.get("/public")
 def read_public() -> PublicContent:
-    return PublicContent(content=PUBLIC_DEMO_FILE.read_text(encoding="utf-8"))
+    return PublicContent(content=read_content())
 
 
 @router.put("/public")
 def write_public(content: PublicContent | None = None) -> PublicContent:
     if content is None or content.content is None:
-        value = default_content()
+        values = [default_content()]
     else:
-        value = content.content
-    PUBLIC_DEMO_FILE.write_text(value, encoding="utf-8")
-    return PublicContent(content=value)
+        values = content.content
+
+    if values:
+        existing = PUBLIC_DEMO_FILE.read_text(encoding="utf-8")
+        separator = "" if not existing or existing.endswith("\n") else "\n"
+        appended_content = "\n".join(values)
+        with PUBLIC_DEMO_FILE.open("a", encoding="utf-8") as demo_file:
+            demo_file.write(f"{separator}{appended_content}\n")
+
+    return PublicContent(content=read_content())
+
+
+def read_content() -> list[str]:
+    return PUBLIC_DEMO_FILE.read_text(encoding="utf-8").splitlines()
 
 
 def default_content() -> str:

@@ -1,10 +1,10 @@
 import os
-import socket
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from starlette.staticfiles import StaticFiles
 
+from src.middleware import ServedByMiddleware
 from src.routers import health, items, test_rw
 
 APP_NAME = "PythonCICD"
@@ -22,6 +22,7 @@ async def lifespan(application: FastAPI):
 
 
 app = FastAPI(title=APP_NAME, version=APP_VERSION, lifespan=lifespan)
+app.add_middleware(ServedByMiddleware)
 app.state.started = False
 app.state.ready = False
 
@@ -38,5 +39,4 @@ def read_root():
         "name": APP_NAME,
         "version": APP_VERSION,
         "environment": os.getenv("APP_ENV", "UNKNOWN"),
-        "served_by": socket.gethostname(),
     }
