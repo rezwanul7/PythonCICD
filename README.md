@@ -26,11 +26,12 @@ Install dependencies and start the API:
 
 ```shell
 poetry install --no-interaction --no-root
-poetry run python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+poetry run python -m src.server --host 0.0.0.0 --port 8000 --reload
 ```
 
 The API is available at `http://localhost:8000`, with interactive documentation
-at `http://localhost:8000/docs`.
+at `http://localhost:8000/docs`. The development launcher prints both browser
+URLs and Uvicorn's network binding in the console.
 
 ## Docker development
 
