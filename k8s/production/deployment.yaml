@@ -34,7 +34,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: initialize-public-file
-          image: rezwanul7/python-cicd:sha-ccab3bf6c888827db803280eb60dffdf22f5d885
+          image: rezwanul7/python-cicd:sha-7a3609758c010806a988b15bace5b0522fbe5abf
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -47,7 +47,7 @@ spec:
               mountPath: /writable-public
       containers:
         - name: api
-          image: rezwanul7/python-cicd:sha-ccab3bf6c888827db803280eb60dffdf22f5d885
+          image: rezwanul7/python-cicd:sha-7a3609758c010806a988b15bace5b0522fbe5abf
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

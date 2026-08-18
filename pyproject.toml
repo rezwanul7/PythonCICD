@@ -12,7 +12,7 @@ uvicorn = {version = "^0.52.1", extras = ["standard"]}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.1.1"
-httpx = "^0.28.1"
+httpx2 = "^2.9.1"
 ruff = "^0.16.2"
 
 [tool.ruff]
