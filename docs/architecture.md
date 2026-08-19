@@ -71,7 +71,8 @@ The application currently provides:
   probes.
 - `/public/demo.txt` as an immutable file bundled into the image.
 - `/uploads/uploaded.txt` for the on-demand file that represents a user upload.
-- `GET` and `PUT /test-rw/uploads` to read and append to the simulated upload.
+- `POST /test-rw/uploads` to create or replace the simulated upload.
+- `GET` and `PUT /test-rw/uploads` to read and append after it exists.
 - `/docs` for the FastAPI-generated OpenAPI interface.
 
 Lifecycle state is process-local and ephemeral. The simulated upload is stored
@@ -154,9 +155,9 @@ The container root filesystem is read-only. A temporary `emptyDir` volume is
 mounted at `/tmp`; its contents disappear when the Pod is replaced. Immutable
 assets remain at `/home/appuser/public` in the image. The
 `python-cicd-public-data` PersistentVolumeClaim is mounted at
-`/home/appuser/uploads` and stores `uploaded.txt` after its first write. No init
-container seeds that directory. The claim's legacy name is retained until a
-later storage migration.
+`/home/appuser/uploads` and stores `uploaded.txt` after its first simulated
+upload. No init container seeds that directory. The claim's legacy name is
+retained until a later storage migration.
 
 The claim currently uses K3s `local-path` storage with `ReadWriteOnce`. Multiple
 Pods can share it on the selected node, but it is not shared storage across

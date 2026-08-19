@@ -19,36 +19,54 @@ def read_upload() -> UploadContent:
     return UploadContent(content=read_content())
 
 
+@router.post("/uploads")
+def upload(content: UploadContent | None = None) -> UploadContent:
+    values = content_values(content)
+    uploaded_content = "\n".join(values)
+    if values:
+        uploaded_content += "\n"
+    UPLOADED_FILE.write_text(uploaded_content, encoding="utf-8")
+
+    return UploadContent(content=read_content())
+
+
 @router.put("/uploads")
 def write_upload(content: UploadContent | None = None) -> UploadContent:
-    if content is None or content.content is None:
-        values = [default_content()]
-    else:
-        values = content.content
+    values = content_values(content)
+    read_content()
 
     if values:
         try:
-            existing = UPLOADED_FILE.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            existing = ""
-        separator = "" if not existing or existing.endswith("\n") else "\n"
-        appended_content = "\n".join(values)
-        with UPLOADED_FILE.open("a", encoding="utf-8") as uploaded_file:
-            uploaded_file.write(f"{separator}{appended_content}\n")
-    else:
-        UPLOADED_FILE.touch(exist_ok=True)
+            with UPLOADED_FILE.open("r+", encoding="utf-8") as uploaded_file:
+                existing = uploaded_file.read()
+                separator = "" if not existing or existing.endswith("\n") else "\n"
+                appended_content = "\n".join(values)
+                uploaded_file.seek(0, 2)
+                uploaded_file.write(f"{separator}{appended_content}\n")
+        except FileNotFoundError as error:
+            raise missing_upload_error() from error
 
     return UploadContent(content=read_content())
+
+
+def content_values(content: UploadContent | None) -> list[str]:
+    if content is None or content.content is None:
+        return [default_content()]
+    return content.content
 
 
 def read_content() -> list[str]:
     try:
         return UPLOADED_FILE.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Uploaded file does not exist",
-        ) from error
+        raise missing_upload_error() from error
+
+
+def missing_upload_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Uploaded file does not exist",
+    )
 
 
 def default_content() -> str:

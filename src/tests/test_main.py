@@ -145,6 +145,9 @@ def test_public_demo_file_is_served_as_an_immutable_asset(client):
 
 def test_missing_upload_returns_not_found(client, missing_uploaded_file):
     api_response = client.get("/test-rw/uploads")
+    write_response = client.put(
+        "/test-rw/uploads", json={"content": ["Cannot write before upload."]}
+    )
     static_response = client.get("/uploads/uploaded.txt")
     legacy_response = client.get("/uploads/demo.txt")
 
@@ -153,21 +156,28 @@ def test_missing_upload_returns_not_found(client, missing_uploaded_file):
         "detail": "Uploaded file does not exist",
         "served_by": socket.gethostname(),
     }
+    assert write_response.status_code == 404
+    assert write_response.json() == api_response.json()
+    assert not UPLOADED_FILE.exists()
     assert static_response.status_code == 404
     assert legacy_response.status_code == 404
 
 
-def test_test_rw_router_creates_and_appends_upload_file(client, missing_uploaded_file):
+def test_test_rw_router_uploads_and_appends_to_upload_file(
+    client, missing_uploaded_file
+):
     public_bytes = PUBLIC_DEMO_FILE.read_bytes()
-    initial_content = ["Created through the test-rw router."]
+    initial_content = ["Uploaded through the test-rw router."]
     appended_content = ["Appended through the test-rw router."]
 
-    create_response = client.put("/test-rw/uploads", json={"content": initial_content})
+    upload_response = client.post(
+        "/test-rw/uploads", json={"content": initial_content}
+    )
     append_response = client.put("/test-rw/uploads", json={"content": appended_content})
     static_response = client.get("/uploads/uploaded.txt")
 
-    assert create_response.status_code == 200
-    assert create_response.json() == {
+    assert upload_response.status_code == 200
+    assert upload_response.json() == {
         "content": initial_content,
         "served_by": socket.gethostname(),
     }
@@ -185,8 +195,8 @@ def test_test_rw_router_creates_and_appends_upload_file(client, missing_uploaded
     assert PUBLIC_DEMO_FILE.read_bytes() == public_bytes
 
 
-def test_empty_content_creates_an_empty_upload_file(client, missing_uploaded_file):
-    response = client.put("/test-rw/uploads", json={"content": []})
+def test_upload_with_empty_content_creates_an_empty_file(client, missing_uploaded_file):
+    response = client.post("/test-rw/uploads", json={"content": []})
     read_response = client.get("/test-rw/uploads")
     static_response = client.get("/uploads/uploaded.txt")
 
@@ -205,10 +215,10 @@ def test_empty_content_creates_an_empty_upload_file(client, missing_uploaded_fil
     "request_kwargs",
     [{}, {"json": None}, {"json": {"content": None}}],
 )
-def test_test_rw_router_creates_default_upload_without_content(
+def test_test_rw_router_uploads_default_content_without_content(
     client, missing_uploaded_file, request_kwargs
 ):
-    response = client.put("/test-rw/uploads", **request_kwargs)
+    response = client.post("/test-rw/uploads", **request_kwargs)
 
     assert response.status_code == 200
     pattern = (
@@ -221,6 +231,38 @@ def test_test_rw_router_creates_default_upload_without_content(
         UPLOADED_FILE.read_text(encoding="utf-8").splitlines()
         == response.json()["content"]
     )
+
+
+def test_upload_replaces_existing_content(client, missing_uploaded_file):
+    initial_content = ["First upload.", "This line will be replaced."]
+    replacement_content = ["Replacement upload."]
+
+    client.post("/test-rw/uploads", json={"content": initial_content})
+    response = client.post(
+        "/test-rw/uploads", json={"content": replacement_content}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "content": replacement_content,
+        "served_by": socket.gethostname(),
+    }
+    assert UPLOADED_FILE.read_text(encoding="utf-8").splitlines() == replacement_content
+
+
+def test_empty_write_leaves_existing_upload_unchanged(client, missing_uploaded_file):
+    initial_content = ["Existing upload."]
+    client.post("/test-rw/uploads", json={"content": initial_content})
+    original_bytes = UPLOADED_FILE.read_bytes()
+
+    response = client.put("/test-rw/uploads", json={"content": []})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "content": initial_content,
+        "served_by": socket.gethostname(),
+    }
+    assert UPLOADED_FILE.read_bytes() == original_bytes
 
 
 def test_info_endpoint_is_removed(client):
