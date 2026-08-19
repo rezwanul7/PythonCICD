@@ -27,6 +27,7 @@ app.state.started = False
 app.state.ready = False
 
 app.mount("/public", StaticFiles(directory="public"), name="public")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(health.router)
 app.include_router(items.router)
 app.include_router(test_rw.router)

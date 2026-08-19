@@ -33,18 +33,18 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
-        - name: initialize-public-file
+        - name: initialize-upload-file
           image: rezwanul7/python-cicd:sha-7a3609758c010806a988b15bace5b0522fbe5abf
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
             - -c
             - >-
-              test -f /writable-public/demo.txt || cp
-              /home/appuser/public/demo.txt /writable-public/demo.txt
+              test -f /writable-uploads/demo.txt || cp
+              /home/appuser/uploads/demo.txt /writable-uploads/demo.txt
           volumeMounts:
-            - name: public-data
-              mountPath: /writable-public
+            - name: uploads-data
+              mountPath: /writable-uploads
       containers:
         - name: api
           image: rezwanul7/python-cicd:sha-7a3609758c010806a988b15bace5b0522fbe5abf
@@ -93,12 +93,13 @@ spec:
           volumeMounts:
             - name: temporary-files
               mountPath: /tmp
-            - name: public-data
-              mountPath: /home/appuser/public
+            - name: uploads-data
+              mountPath: /home/appuser/uploads
       volumes:
         - name: temporary-files
           emptyDir: {}
-        - name: public-data
+        - name: uploads-data
           persistentVolumeClaim:
+            # Keep the legacy claim name until the later storage migration.
             claimName: python-cicd-public-data
       terminationGracePeriodSeconds: 30

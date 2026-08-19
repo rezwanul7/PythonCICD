@@ -14,10 +14,10 @@ def client():
         yield test_client
 
 
-def test_get_root_uses_default_environment_without_writing_public_file(
+def test_get_root_uses_default_environment_without_writing_upload_file(
     client, monkeypatch
 ):
-    demo_file = Path("public/demo.txt")
+    demo_file = Path("uploads/demo.txt")
     original_content = demo_file.read_text()
     monkeypatch.delenv("APP_ENV", raising=False)
 
@@ -122,15 +122,21 @@ def test_get_item_rejects_non_integer_id(client):
     assert response.json()["served_by"] == socket.gethostname()
 
 
-def test_static_demo_file_is_served(client):
-    response = client.get("/public/demo.txt")
+def test_uploaded_demo_file_is_served(client):
+    response = client.get("/uploads/demo.txt")
 
     assert response.status_code == 200
-    assert response.content == Path("public/demo.txt").read_bytes()
+    assert response.content == Path("uploads/demo.txt").read_bytes()
 
 
-def test_test_rw_router_reads_and_writes_public_file(client):
-    demo_file = Path("public/demo.txt")
+def test_demo_file_is_not_served_as_a_public_asset(client):
+    response = client.get("/public/demo.txt")
+
+    assert response.status_code == 404
+
+
+def test_test_rw_router_reads_and_writes_upload_file(client):
+    demo_file = Path("uploads/demo.txt")
     original_bytes = demo_file.read_bytes()
     original_content = demo_file.read_text(encoding="utf-8").splitlines()
     updated_content = [
@@ -139,9 +145,9 @@ def test_test_rw_router_reads_and_writes_public_file(client):
     ]
 
     try:
-        read_response = client.get("/test-rw/public")
+        read_response = client.get("/test-rw/uploads")
         write_response = client.put(
-            "/test-rw/public", json={"content": updated_content}
+            "/test-rw/uploads", json={"content": updated_content}
         )
 
         assert read_response.status_code == 200
@@ -163,11 +169,11 @@ def test_test_rw_router_reads_and_writes_public_file(client):
 
 
 def test_test_rw_router_writes_hostname_and_timestamp_without_content(client):
-    demo_file = Path("public/demo.txt")
+    demo_file = Path("uploads/demo.txt")
     original_bytes = demo_file.read_bytes()
 
     try:
-        response = client.put("/test-rw/public", json={})
+        response = client.put("/test-rw/uploads", json={})
 
         assert response.status_code == 200
         pattern = (

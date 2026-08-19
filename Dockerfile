@@ -46,9 +46,12 @@ COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /home/appuser
 
-# Application files remain root-owned and read-only to the runtime user.
+# Application and static files remain root-owned and read-only. The uploads
+# directory is writable so it has the same contract with or without a volume.
 COPY . .
-RUN chown appuser:appuser public/demo.txt
+RUN chown --recursive appuser:appuser uploads \
+    && chmod 0750 uploads \
+    && chmod 0640 uploads/demo.txt
 
 USER appuser
 

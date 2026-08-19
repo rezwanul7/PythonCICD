@@ -7,37 +7,37 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/test-rw", tags=["test-rw"])
 
-PUBLIC_DEMO_FILE = Path(__file__).resolve().parents[2] / "public" / "demo.txt"
+UPLOAD_DEMO_FILE = Path(__file__).resolve().parents[2] / "uploads" / "demo.txt"
 
 
-class PublicContent(BaseModel):
+class UploadContent(BaseModel):
     content: list[str] | None = None
 
 
-@router.get("/public")
-def read_public() -> PublicContent:
-    return PublicContent(content=read_content())
+@router.get("/uploads")
+def read_upload() -> UploadContent:
+    return UploadContent(content=read_content())
 
 
-@router.put("/public")
-def write_public(content: PublicContent | None = None) -> PublicContent:
+@router.put("/uploads")
+def write_upload(content: UploadContent | None = None) -> UploadContent:
     if content is None or content.content is None:
         values = [default_content()]
     else:
         values = content.content
 
     if values:
-        existing = PUBLIC_DEMO_FILE.read_text(encoding="utf-8")
+        existing = UPLOAD_DEMO_FILE.read_text(encoding="utf-8")
         separator = "" if not existing or existing.endswith("\n") else "\n"
         appended_content = "\n".join(values)
-        with PUBLIC_DEMO_FILE.open("a", encoding="utf-8") as demo_file:
+        with UPLOAD_DEMO_FILE.open("a", encoding="utf-8") as demo_file:
             demo_file.write(f"{separator}{appended_content}\n")
 
-    return PublicContent(content=read_content())
+    return UploadContent(content=read_content())
 
 
 def read_content() -> list[str]:
-    return PUBLIC_DEMO_FILE.read_text(encoding="utf-8").splitlines()
+    return UPLOAD_DEMO_FILE.read_text(encoding="utf-8").splitlines()
 
 
 def default_content() -> str:

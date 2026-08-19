@@ -1,5 +1,8 @@
 *
 !src
 !public
+!uploads
+uploads/*
+!uploads/demo.txt
 !poetry.lock
 !pyproject.toml

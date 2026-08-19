@@ -7,22 +7,26 @@ and must not be interpreted as already implemented.
 
 ## Current status
 
-PythonCICD is a small, stateless FastAPI service packaged as a Docker image. It
-can run locally with Docker Compose and in production on Kubernetes. GitHub
-Actions validates the application and publishes images to Docker Hub, while the
+PythonCICD is a small FastAPI service packaged as a Docker image. It can run
+locally with Docker Compose and in production on Kubernetes. GitHub Actions
+validates the application and publishes images to Docker Hub, while the
 Kubernetes deployment is performed manually from a trusted workstation.
 
-The current system does not include a database, message broker, persistent
-storage, public ingress, DNS, TLS automation, or an external secrets manager.
+Kubernetes persists the simulated upload in a node-local PersistentVolumeClaim
+and exposes the API through an HTTP Ingress. The current system does not include
+a database, message broker, shared multi-node storage, DNS, TLS automation, or
+an external secrets manager.
 
 ## System context
 
 ```mermaid
 flowchart LR
-    User[API consumer] -->|HTTP| Entry[Local port forward or internal cluster client]
+    User[API consumer] -->|HTTP| Entry[Ingress or local port forward]
     Entry --> Service[Kubernetes ClusterIP Service]
     Service --> PodA[FastAPI Pod]
     Service --> PodB[FastAPI Pod]
+    PodA --> Uploads[Local-path uploads PVC]
+    PodB --> Uploads
 
     Developer[Developer] -->|push| GitHub[GitHub repository]
     GitHub -->|workflow| Actions[GitHub Actions]
@@ -52,9 +56,11 @@ port `8000`.
 src/main.py
   |-- application lifespan and state
   |-- GET /
-  |-- /public static files
+  |-- /public immutable static files
+  |-- /uploads simulated user uploads
   |-- health router
-  `-- items router
+  |-- items router
+  `-- test-rw router
 ```
 
 The application currently provides:
@@ -64,11 +70,15 @@ The application currently provides:
 - `GET /health/startup`, `/health/live`, and `/health/ready` for Kubernetes
   probes.
 - `/public` for static files bundled into the image.
+- `/uploads` for files that represent writable user uploads.
+- `GET` and `PUT /test-rw/uploads` to read and append to the simulated upload.
 - `/docs` for the FastAPI-generated OpenAPI interface.
 
-Application state is process-local and ephemeral. Any Pod can serve any
-request, and a Pod can be replaced without data migration or recovery. This is
-what allows the Deployment to run multiple interchangeable replicas.
+Lifecycle state is process-local and ephemeral. The simulated upload is stored
+outside the container in Kubernetes and survives Pod replacement. Any Pod on
+the local volume's selected node can serve requests and access the same file;
+the current local-path storage does not support distributing those Pods across
+different nodes.
 
 ## Container architecture
 
@@ -82,8 +92,12 @@ The `Dockerfile` uses a multi-stage build:
 4. Uvicorn listens on `0.0.0.0:8000`.
 
 The production image excludes Poetry, pytest, and other development-only
-dependencies. Application and static files are included in the image, so a new
-image is required for every code or static-content release.
+dependencies. Application and immutable static files are included in the
+image, so a new image is required for every code or static-content release. A
+seed copy of `uploads/demo.txt` is also included for initializing an empty
+Kubernetes volume; once initialized, the mounted volume owns the runtime file.
+Staging and production Compose checks write to the container layer, so their
+changes disappear when the container is replaced.
 
 ## Runtime environments
 
@@ -100,14 +114,16 @@ Kubernetes production topology.
 
 ## Kubernetes topology
 
-The production manifests under `k8s/production` create three resources in the
+The production manifests under `k8s/production` create five resources in the
 current namespace:
 
-| Resource   | Name                      | Responsibility                                                  |
-|------------|---------------------------|-----------------------------------------------------------------|
-| ConfigMap  | `python-cicd-api-config`  | Supplies non-sensitive application configuration                |
-| Deployment | `python-cicd-api`         | Maintains two application replicas and performs rolling updates |
-| Service    | `python-cicd-api-service` | Provides stable, internal routing to ready Pods                 |
+| Resource              | Name                        | Responsibility                                                  |
+|-----------------------|-----------------------------|-----------------------------------------------------------------|
+| ConfigMap             | `python-cicd-api-config`    | Supplies non-sensitive application configuration                |
+| PersistentVolumeClaim | `python-cicd-public-data`   | Persists the simulated upload on local-path storage              |
+| Deployment            | `python-cicd-api`           | Maintains two application replicas and performs rolling updates |
+| Service               | `python-cicd-api-service`   | Provides stable, internal routing to ready Pods                  |
+| Ingress               | `python-cicd-api`           | Routes ingress-controller HTTP traffic to the Service            |
 
 The resources keep `app.kubernetes.io/name: python-cicd` as their shared
 application identity. The Deployment selector, Pod labels, and Service selector
@@ -116,7 +132,7 @@ also use `app.kubernetes.io/instance: production` and
 
 ### Availability and lifecycle
 
-- Two replicas provide process-level redundancy.
+- Two replicas provide process-level redundancy on the volume's selected node.
 - Rolling updates allow one additional Pod and require existing replicas to
   remain available (`maxSurge: 1`, `maxUnavailable: 0`).
 - The startup probe gives the process time to initialize.
@@ -135,14 +151,22 @@ Each Pod requests `100m` CPU and `128Mi` memory and is limited to `500m` CPU and
 overhead.
 
 The container root filesystem is read-only. A temporary `emptyDir` volume is
-mounted at `/tmp`; its contents disappear when the Pod is replaced. There are
-no PersistentVolumes.
+mounted at `/tmp`; its contents disappear when the Pod is replaced. Immutable
+assets remain at `/home/appuser/public` in the image. The
+`python-cicd-public-data` PersistentVolumeClaim is mounted at
+`/home/appuser/uploads` and stores the simulated upload. Its legacy name is
+retained until a later storage migration.
+
+The claim currently uses K3s `local-path` storage with `ReadWriteOnce`. Multiple
+Pods can share it on the selected node, but it is not shared storage across
+nodes and does not protect data from permanent loss of that node.
 
 ### Network exposure
 
-The Service type is `ClusterIP`. The API is therefore reachable only from
-inside the cluster or through an operator-established `kubectl port-forward`.
-There is currently no public production endpoint.
+The Service type is `ClusterIP`. An HTTP Ingress routes traffic from the
+cluster's Ingress controller to that internal Service. The Ingress has no
+hostname or TLS configuration, so it is intended only for temporary testing;
+an operator can also use `kubectl port-forward`.
 
 ## Configuration and secrets
 
@@ -211,7 +235,7 @@ The current runtime applies these controls:
 - The default runtime seccomp profile is enabled.
 - The root filesystem is read-only.
 - CPU and memory limits constrain resource consumption.
-- The Service is not publicly exposed.
+- The application container is reached through a ClusterIP Service and Ingress.
 
 Current limitations include:
 
@@ -221,6 +245,9 @@ Current limitations include:
 - Kubernetes RBAC, namespace policy, NetworkPolicy, and Pod security admission
   are managed outside this repository and are not documented yet.
 - There is no application authentication or authorization layer.
+- The Ingress does not configure a hostname, TLS, or an HTTPS redirect.
+- The writable upload is served directly and is only a storage demonstration;
+  no upload validation, content policy, or access control exists.
 
 ## Observability and operations
 
@@ -235,15 +262,16 @@ deployment runbook.
 
 ## Known boundaries
 
-- The service is stateless and has no external data dependencies.
+- The simulated upload depends on a node-local PVC and is not multi-node
+  resilient.
 - The production deployment targets one Kubernetes cluster and the current
   kubectl namespace.
 - Releases require a manual manifest update and `kubectl apply`.
 - Rollback uses Kubernetes rollout history and must be reconciled back into the
   manifest afterward.
 - Scaling is fixed at two replicas; no HorizontalPodAutoscaler is configured.
-- Public networking and certificate management are intentionally out of scope
-  for the current basic setup.
+- DNS and certificate management are intentionally out of scope for the current
+  basic HTTP Ingress.
 
 ## Evolution backlog
 
@@ -251,13 +279,14 @@ The next architecture changes should be documented when their requirements are
 known. Likely additions are:
 
 1. Introduce a namespace and environment-specific configuration strategy.
-2. Add Ingress or Gateway, DNS, and TLS for controlled public access.
+2. Add DNS and TLS to the existing Ingress for controlled public access.
 3. Add centralized metrics, logs, dashboards, and alerts.
 4. Add runtime secrets management when the first sensitive dependency appears.
 5. Add NetworkPolicy and document cluster RBAC and Pod security requirements.
 6. Automate deployment promotion after the manual process is well understood.
 7. Add autoscaling only after real resource and traffic measurements exist.
-8. Define backup and disaster-recovery behavior when persistent data is added.
+8. Migrate uploads to shared storage and define backup and disaster-recovery
+   behavior before treating them as production user data.
 
 These are candidates, not commitments. Each addition should be driven by an
 explicit requirement and captured in this document or in a separate

@@ -14,13 +14,13 @@ The production release flow is:
 4. Set that immutable tag in `k8s/production/deployment.yaml`.
 5. Apply the Kubernetes manifests and verify the rollout.
 
-The manifests create two application replicas, a ConfigMap, an internal
-`ClusterIP` Service, and an HTTP Ingress in the current namespace. The Ingress
-requires an Ingress controller already installed in the cluster. It currently
-has no hostname or TLS configuration, so it can be reached through the
-controller's external address for temporary testing. All commands below use the
-`default` namespace unless `--namespace` or the current kubectl context says
-otherwise.
+The manifests create two application replicas, a ConfigMap, a local-path
+PersistentVolumeClaim for the simulated upload, an internal `ClusterIP`
+Service, and an HTTP Ingress in the current namespace. The Ingress requires an
+Ingress controller already installed in the cluster. It currently has no
+hostname or TLS configuration, so it can be reached through the controller's
+external address for temporary testing. All commands below use the `default`
+namespace unless `--namespace` or the current kubectl context says otherwise.
 
 ## Prerequisites
 
@@ -29,6 +29,8 @@ Before deploying, confirm that you have:
 - Access to a running Kubernetes cluster.
 - `kubectl` installed and configured for the target cluster.
 - Permission to create Deployments, Services, ConfigMaps, Pods, and ReplicaSets.
+- Permission to create PersistentVolumeClaims, plus an existing StorageClass
+  named `local-path`.
 - An installed and externally reachable Ingress controller.
 - A successful image-publishing run in GitHub Actions.
 - Access from the cluster to `docker.io/rezwanul7/python-cicd`.
@@ -189,7 +191,7 @@ exist.
 Inspect the workload and Service:
 
 ```shell
-kubectl get deployment,pods,service
+kubectl get deployment,pods,service,pvc
 kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 
@@ -199,6 +201,8 @@ The expected state is:
 - Both application Pods are `Running` and ready.
 - Service `python-cicd-api-service` is a `ClusterIP` listening on port `8000`.
 - Ingress `python-cicd-api` routes HTTP traffic to the internal Service.
+- PVC `python-cicd-public-data` is `Bound`; despite its legacy name, it is
+  mounted at `/home/appuser/uploads`.
 - The Deployment image matches the selected immutable SHA tag.
 
 Get the Ingress address and smoke-test it over HTTP:
@@ -209,6 +213,7 @@ curl http://<ingress-address>/health/startup
 curl http://<ingress-address>/health/live
 curl http://<ingress-address>/health/ready
 curl http://<ingress-address>/
+curl http://<ingress-address>/uploads/demo.txt
 ```
 
 If the controller has not yet been assigned an address, or you are testing from
@@ -221,6 +226,7 @@ curl http://localhost:8000/health/startup
 curl http://localhost:8000/health/live
 curl http://localhost:8000/health/ready
 curl http://localhost:8000/
+curl http://localhost:8000/uploads/demo.txt
 ```
 
 Interactive API documentation is available at <http://localhost:8000/docs>.
@@ -343,7 +349,7 @@ kubectl apply -f k8s/production
 
 # Verify the release
 kubectl rollout status deployment/python-cicd-api --timeout=120s
-kubectl get deployment,pods,service
+kubectl get deployment,pods,service,pvc
 kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 
 # Smoke-test through the Ingress controller address

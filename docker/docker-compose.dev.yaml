@@ -14,5 +14,6 @@ services:
     volumes:
       - ../src:/home/appuser/src
       - ../public:/home/appuser/public
+      - ../uploads:/home/appuser/uploads
     stdin_open: true
     tty: true
