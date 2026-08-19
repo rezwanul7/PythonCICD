@@ -51,7 +51,7 @@ WORKDIR /home/appuser
 COPY . .
 RUN chown --recursive appuser:appuser uploads \
     && chmod 0750 uploads \
-    && chmod 0640 uploads/demo.txt
+    && chmod 0644 public/demo.txt
 
 USER appuser
 

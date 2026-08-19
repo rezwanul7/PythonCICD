@@ -213,7 +213,7 @@ curl http://<ingress-address>/health/startup
 curl http://<ingress-address>/health/live
 curl http://<ingress-address>/health/ready
 curl http://<ingress-address>/
-curl http://<ingress-address>/uploads/demo.txt
+curl http://<ingress-address>/public/demo.txt
 ```
 
 If the controller has not yet been assigned an address, or you are testing from
@@ -226,10 +226,35 @@ curl http://localhost:8000/health/startup
 curl http://localhost:8000/health/live
 curl http://localhost:8000/health/ready
 curl http://localhost:8000/
-curl http://localhost:8000/uploads/demo.txt
+curl http://localhost:8000/public/demo.txt
 ```
 
 Interactive API documentation is available at <http://localhost:8000/docs>.
+
+### One-time upload cleanup for this release
+
+This release moves `demo.txt` back into the immutable image and stops seeding
+the uploads volume. After `/public/demo.txt` succeeds, remove only the legacy
+copy from the existing PVC:
+
+```shell
+kubectl get pods -l app.kubernetes.io/name=python-cicd
+kubectl exec <python-cicd-pod-name> -- rm -f /home/appuser/uploads/demo.txt
+```
+
+Before the first upload write, both of these requests must return HTTP 404:
+
+```shell
+curl --output /dev/null --silent --write-out '%{http_code}\n' \
+  http://<ingress-address>/uploads/demo.txt
+curl --output /dev/null --silent --write-out '%{http_code}\n' \
+  http://<ingress-address>/uploads/uploaded.txt
+curl http://<ingress-address>/test-rw/uploads
+```
+
+The last request returns a JSON error with detail `Uploaded file does not
+exist`. Do not call the PUT endpoint during this check because its intended
+behavior is to create `uploaded.txt`.
 
 ## Deploy a new version
 

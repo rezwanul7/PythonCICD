@@ -238,8 +238,9 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 public/*
 !public/.keep
+!public/demo.txt
 uploads/*
-!uploads/demo.txt
+!uploads/.keep
 
 # Generated CI validation output
 .tmp/

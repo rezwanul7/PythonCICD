@@ -69,8 +69,8 @@ The application currently provides:
 - `GET /items/{item_id}` as an example API endpoint.
 - `GET /health/startup`, `/health/live`, and `/health/ready` for Kubernetes
   probes.
-- `/public` for static files bundled into the image.
-- `/uploads` for files that represent writable user uploads.
+- `/public/demo.txt` as an immutable file bundled into the image.
+- `/uploads/uploaded.txt` for the on-demand file that represents a user upload.
 - `GET` and `PUT /test-rw/uploads` to read and append to the simulated upload.
 - `/docs` for the FastAPI-generated OpenAPI interface.
 
@@ -93,11 +93,11 @@ The `Dockerfile` uses a multi-stage build:
 
 The production image excludes Poetry, pytest, and other development-only
 dependencies. Application and immutable static files are included in the
-image, so a new image is required for every code or static-content release. A
-seed copy of `uploads/demo.txt` is also included for initializing an empty
-Kubernetes volume; once initialized, the mounted volume owns the runtime file.
-Staging and production Compose checks write to the container layer, so their
-changes disappear when the container is replaced.
+image, so a new image is required for every code or static-content release. The
+image contains an empty writable `uploads` directory and does not seed user
+data. The first successful upload PUT creates `uploaded.txt`. Staging and
+production Compose checks write it to the container layer, so their changes
+disappear when the container is replaced.
 
 ## Runtime environments
 
@@ -154,8 +154,9 @@ The container root filesystem is read-only. A temporary `emptyDir` volume is
 mounted at `/tmp`; its contents disappear when the Pod is replaced. Immutable
 assets remain at `/home/appuser/public` in the image. The
 `python-cicd-public-data` PersistentVolumeClaim is mounted at
-`/home/appuser/uploads` and stores the simulated upload. Its legacy name is
-retained until a later storage migration.
+`/home/appuser/uploads` and stores `uploaded.txt` after its first write. No init
+container seeds that directory. The claim's legacy name is retained until a
+later storage migration.
 
 The claim currently uses K3s `local-path` storage with `ReadWriteOnce`. Multiple
 Pods can share it on the selected node, but it is not shared storage across

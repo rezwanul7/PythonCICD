@@ -3,6 +3,6 @@
 !public
 !uploads
 uploads/*
-!uploads/demo.txt
+!uploads/.keep
 !poetry.lock
 !pyproject.toml

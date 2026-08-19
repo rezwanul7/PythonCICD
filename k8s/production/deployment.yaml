@@ -32,19 +32,6 @@ spec:
         fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: initialize-upload-file
-          image: rezwanul7/python-cicd:sha-7a3609758c010806a988b15bace5b0522fbe5abf
-          imagePullPolicy: IfNotPresent
-          command:
-            - /bin/sh
-            - -c
-            - >-
-              test -f /writable-uploads/demo.txt || cp
-              /home/appuser/uploads/demo.txt /writable-uploads/demo.txt
-          volumeMounts:
-            - name: uploads-data
-              mountPath: /writable-uploads
       containers:
         - name: api
           image: rezwanul7/python-cicd:sha-7a3609758c010806a988b15bace5b0522fbe5abf
