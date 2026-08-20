@@ -170,9 +170,7 @@ def test_test_rw_router_uploads_and_appends_to_upload_file(
     initial_content = ["Uploaded through the test-rw router."]
     appended_content = ["Appended through the test-rw router."]
 
-    upload_response = client.post(
-        "/test-rw/uploads", json={"content": initial_content}
-    )
+    upload_response = client.post("/test-rw/uploads", json={"content": initial_content})
     append_response = client.put("/test-rw/uploads", json={"content": appended_content})
     static_response = client.get("/uploads/uploaded.txt")
 
@@ -238,9 +236,7 @@ def test_upload_replaces_existing_content(client, missing_uploaded_file):
     replacement_content = ["Replacement upload."]
 
     client.post("/test-rw/uploads", json={"content": initial_content})
-    response = client.post(
-        "/test-rw/uploads", json={"content": replacement_content}
-    )
+    response = client.post("/test-rw/uploads", json={"content": replacement_content})
 
     assert response.status_code == 200
     assert response.json() == {
