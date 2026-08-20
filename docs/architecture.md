@@ -12,10 +12,10 @@ locally with Docker Compose and in production on Kubernetes. GitHub Actions
 validates the application and publishes images to Docker Hub, while the
 Kubernetes deployment is performed manually from a trusted workstation.
 
-Kubernetes persists the simulated upload in a node-local PersistentVolumeClaim
-and exposes the API through an HTTP Ingress. The current system does not include
-a database, message broker, shared multi-node storage, DNS, TLS automation, or
-an external secrets manager.
+Kubernetes persists the simulated upload in an NFS-backed
+PersistentVolumeClaim and exposes the API through an HTTP Ingress. The current
+system does not include a database, message broker, DNS, TLS automation, or an
+external secrets manager.
 
 ## System context
 
@@ -25,7 +25,7 @@ flowchart LR
     Entry --> Service[Kubernetes ClusterIP Service]
     Service --> PodA[FastAPI Pod]
     Service --> PodB[FastAPI Pod]
-    PodA --> Uploads[Local-path uploads PVC]
+    PodA --> Uploads[NFS uploads PVC]
     PodB --> Uploads
 
     Developer[Developer] -->|push| GitHub[GitHub repository]
@@ -76,10 +76,9 @@ The application currently provides:
 - `/docs` for the FastAPI-generated OpenAPI interface.
 
 Lifecycle state is process-local and ephemeral. The simulated upload is stored
-outside the container in Kubernetes and survives Pod replacement. Any Pod on
-the local volume's selected node can serve requests and access the same file;
-the current local-path storage does not support distributing those Pods across
-different nodes.
+outside the container in Kubernetes and survives Pod replacement. The NFS
+volume supports shared read/write access by replicas scheduled on different
+nodes.
 
 ## Container architecture
 
@@ -116,12 +115,13 @@ Kubernetes production topology.
 ## Kubernetes topology
 
 The production manifests under `k8s/production` create five resources in the
-current namespace:
+current namespace and one cluster-scoped PersistentVolume:
 
 | Resource              | Name                        | Responsibility                                                  |
 |-----------------------|-----------------------------|-----------------------------------------------------------------|
 | ConfigMap             | `python-cicd-api-config`    | Supplies non-sensitive application configuration                |
-| PersistentVolumeClaim | `python-cicd-public-data`   | Persists the simulated upload on local-path storage              |
+| PersistentVolume      | `python-cicd-uploads-nfs`   | Connects Kubernetes to the external NFS uploads export           |
+| PersistentVolumeClaim | `python-cicd-uploads`       | Requests shared read/write storage for simulated uploads         |
 | Deployment            | `python-cicd-api`           | Maintains two application replicas and performs rolling updates |
 | Service               | `python-cicd-api-service`   | Provides stable, internal routing to ready Pods                  |
 | Ingress               | `python-cicd-api`           | Routes ingress-controller HTTP traffic to the Service            |
@@ -133,7 +133,7 @@ also use `app.kubernetes.io/instance: production` and
 
 ### Availability and lifecycle
 
-- Two replicas provide process-level redundancy on the volume's selected node.
+- Two replicas provide process-level redundancy across schedulable nodes.
 - Rolling updates allow one additional Pod and require existing replicas to
   remain available (`maxSurge: 1`, `maxUnavailable: 0`).
 - The startup probe gives the process time to initialize.
@@ -154,14 +154,12 @@ overhead.
 The container root filesystem is read-only. A temporary `emptyDir` volume is
 mounted at `/tmp`; its contents disappear when the Pod is replaced. Immutable
 assets remain at `/home/appuser/public` in the image. The
-`python-cicd-public-data` PersistentVolumeClaim is mounted at
+`python-cicd-uploads` PersistentVolumeClaim is mounted at
 `/home/appuser/uploads` and stores `uploaded.txt` after its first simulated
-upload. No init container seeds that directory. The claim's legacy name is
-retained until a later storage migration.
-
-The claim currently uses K3s `local-path` storage with `ReadWriteOnce`. Multiple
-Pods can share it on the selected node, but it is not shared storage across
-nodes and does not protect data from permanent loss of that node.
+upload. No init container seeds that directory. The claim is statically bound
+to the `python-cicd-uploads-nfs` PersistentVolume and uses `ReadWriteMany`, so
+Pods on different nodes can share it. The NFS server remains an external
+availability and backup dependency.
 
 ### Network exposure
 
@@ -264,8 +262,8 @@ deployment runbook.
 
 ## Known boundaries
 
-- The simulated upload depends on a node-local PVC and is not multi-node
-  resilient.
+- The simulated upload depends on a single NFS server and is not resilient to
+  that server becoming unavailable.
 - The production deployment targets one Kubernetes cluster and the current
   kubectl namespace.
 - Releases require a manual manifest update and `kubectl apply`.
@@ -287,8 +285,8 @@ known. Likely additions are:
 5. Add NetworkPolicy and document cluster RBAC and Pod security requirements.
 6. Automate deployment promotion after the manual process is well understood.
 7. Add autoscaling only after real resource and traffic measurements exist.
-8. Migrate uploads to shared storage and define backup and disaster-recovery
-   behavior before treating them as production user data.
+8. Define backup and disaster-recovery behavior for the NFS uploads before
+   treating them as production user data.
 
 These are candidates, not commitments. Each addition should be driven by an
 explicit requirement and captured in this document or in a separate

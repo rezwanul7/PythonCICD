@@ -30,6 +30,7 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -87,6 +88,5 @@ spec:
           emptyDir: {}
         - name: uploads-data
           persistentVolumeClaim:
-            # Keep the legacy claim name until the later storage migration.
-            claimName: python-cicd-public-data
+            claimName: python-cicd-uploads
       terminationGracePeriodSeconds: 30

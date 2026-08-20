@@ -14,9 +14,11 @@ The production release flow is:
 4. Set that immutable tag in `k8s/production/deployment.yaml`.
 5. Apply the Kubernetes manifests and verify the rollout.
 
-The manifests create two application replicas, a ConfigMap, a local-path
-PersistentVolumeClaim for the simulated upload, an internal `ClusterIP`
-Service, and an HTTP Ingress in the current namespace. The Ingress requires an
+The manifests create two application replicas, a ConfigMap, an NFS-backed
+PersistentVolume and `ReadWriteMany` PersistentVolumeClaim for the simulated
+upload, an internal `ClusterIP` Service, and an HTTP Ingress. The
+PersistentVolume is cluster-scoped; the other resources use the current
+namespace. The Ingress requires an
 Ingress controller already installed in the cluster. It currently has no
 hostname or TLS configuration, so it can be reached through the controller's
 external address for temporary testing. All commands below use the `default`
@@ -29,8 +31,11 @@ Before deploying, confirm that you have:
 - Access to a running Kubernetes cluster.
 - `kubectl` installed and configured for the target cluster.
 - Permission to create Deployments, Services, ConfigMaps, Pods, and ReplicaSets.
-- Permission to create PersistentVolumeClaims, plus an existing StorageClass
-  named `local-path`.
+- Permission to create cluster-scoped PersistentVolumes and namespaced
+  PersistentVolumeClaims.
+- An NFS server reachable from every schedulable node at `192.168.50.10:2049`,
+  exporting `/srv/nfs/python-cicd-uploads` to every such node.
+- NFS client utilities (`nfs-common` on Ubuntu) installed on every node.
 - An installed and externally reachable Ingress controller.
 - A successful image-publishing run in GitHub Actions.
 - Access from the cluster to `docker.io/rezwanul7/python-cicd`.
@@ -101,6 +106,40 @@ kubectl get nodes
 
 Do not continue if the current context points to the wrong cluster.
 
+### Prepare the NFS export
+
+The application runs with UID and GID `10001`. On the NFS server, make that
+identity the owner of the uploads directory and keep `root_squash` enabled:
+
+```bash
+sudo chown 10001:10001 /srv/nfs/python-cicd-uploads
+sudo chmod 0770 /srv/nfs/python-cicd-uploads
+```
+
+The export must authorize the IP of every node on which an application Pod can
+run, not a Pod CIDR. The current lab documentation identifies the control plane
+as `192.168.50.10`, while the reported export authorizes `192.168.50.11`.
+Confirm the complete node list with `kubectl get nodes -o wide`, update
+`/etc/exports` for all those node IPs, and then reload it:
+
+```bash
+sudo exportfs -rav
+sudo exportfs -v
+```
+
+Before applying Kubernetes resources, test the export from each node:
+
+```bash
+sudo mkdir -p /mnt/python-cicd-uploads-test
+sudo mount -t nfs4 192.168.50.10:/srv/nfs/python-cicd-uploads /mnt/python-cicd-uploads-test
+sudo -u '#10001' touch /mnt/python-cicd-uploads-test/node-write-test
+sudo -u '#10001' rm /mnt/python-cicd-uploads-test/node-write-test
+sudo umount /mnt/python-cicd-uploads-test
+```
+
+If `ubuntu001` does not have `192.168.50.10`, change `spec.nfs.server` in
+`k8s/production/persistent-volume.yaml` before applying the manifests.
+
 ## Publish a production image
 
 Push the release commit to the production publishing branch:
@@ -146,7 +185,15 @@ image: rezwanul7/python-cicd:sha-0123456789abcdef0123456789abcdef01234567
 
 Commit this manifest change so the repository records the deployed version.
 
-### 2. Validate the manifests
+### 2. Review an existing uploads claim
+
+This NFS migration creates the new claim `python-cicd-uploads`; it does not
+delete the previous `python-cicd-public-data` local-path claim or copy its data.
+Copy any upload data that must be retained into the NFS export before switching
+the Deployment. Leave the old claim in place until the NFS rollout and upload
+checks have succeeded.
+
+### 3. Validate the manifests
 
 Run client-side validation before changing the cluster:
 
@@ -163,7 +210,7 @@ kubectl diff -f k8s/production
 `kubectl diff` normally exits with status `1` when differences exist; that does
 not mean validation failed.
 
-### 3. Apply the manifests
+### 4. Apply the manifests
 
 ```shell
 kubectl apply -f k8s/production
@@ -191,7 +238,7 @@ exist.
 Inspect the workload and Service:
 
 ```shell
-kubectl get deployment,pods,service,pvc
+kubectl get deployment,pods,service,pv,pvc
 kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 
@@ -201,8 +248,8 @@ The expected state is:
 - Both application Pods are `Running` and ready.
 - Service `python-cicd-api-service` is a `ClusterIP` listening on port `8000`.
 - Ingress `python-cicd-api` routes HTTP traffic to the internal Service.
-- PVC `python-cicd-public-data` is `Bound`; despite its legacy name, it is
-  mounted at `/home/appuser/uploads`.
+- PV `python-cicd-uploads-nfs` and PVC `python-cicd-uploads` are `Bound`.
+- The NFS claim is mounted at `/home/appuser/uploads` in both Pods.
 - The Deployment image matches the selected immutable SHA tag.
 
 Get the Ingress address and smoke-test it over HTTP:
@@ -230,6 +277,17 @@ curl http://localhost:8000/public/demo.txt
 ```
 
 Interactive API documentation is available at <http://localhost:8000/docs>.
+
+Verify shared writes through both replicas after creating an upload:
+
+```shell
+kubectl get pods -l app.kubernetes.io/name=python-cicd -o name
+kubectl exec <first-pod-name> -- cat /home/appuser/uploads/uploaded.txt
+kubectl exec <second-pod-name> -- cat /home/appuser/uploads/uploaded.txt
+```
+
+Only after this succeeds may the old `python-cicd-public-data` claim be removed,
+if its retained data is no longer required.
 
 ### One-time upload cleanup for this release
 
@@ -374,7 +432,7 @@ kubectl apply -f k8s/production
 
 # Verify the release
 kubectl rollout status deployment/python-cicd-api --timeout=120s
-kubectl get deployment,pods,service,pvc
+kubectl get deployment,pods,service,pv,pvc
 kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 
 # Smoke-test through the Ingress controller address

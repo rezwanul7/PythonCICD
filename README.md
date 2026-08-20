@@ -234,15 +234,16 @@ immutable `sha-<full-git-sha>` tag. Then deploy the production manifests:
 ```shell
 kubectl apply -f k8s/production
 kubectl rollout status deployment/python-cicd-api --timeout=120s
-kubectl get pods,service
+kubectl get pods,service,pv,pvc
 ```
 
-The `test-rw/uploads` endpoint writes to the `python-cicd-public-data`
-PersistentVolumeClaim mounted at `/home/appuser/uploads`. The claim keeps its
-legacy name until a later storage migration. The current K3s `local-path`
-storage is durable across Pod replacement and can be shared by Pods on its
-selected node. It cannot provide shared writable storage across nodes; use an
-RWX-capable storage provider before distributing these replicas across nodes.
+The `test-rw/uploads` endpoint writes to the `python-cicd-uploads`
+PersistentVolumeClaim mounted at `/home/appuser/uploads`. It is statically
+bound to the `python-cicd-uploads-nfs` PersistentVolume, which uses the NFS
+export `/srv/nfs/python-cicd-uploads` on `192.168.50.10`. Its `ReadWriteMany`
+access mode lets replicas on different Kubernetes nodes share uploaded files.
+The PV's declared `1Gi` capacity is used for Kubernetes claim matching; NFS
+does not enforce that limit unless the server filesystem has a matching quota.
 
 `/home/appuser/public` is not volume-mounted. It remains immutable content from
 the image, while `/home/appuser/uploads` is initially empty and receives
