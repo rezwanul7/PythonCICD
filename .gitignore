@@ -239,6 +239,8 @@ fabric.properties
 public/*
 !public/.keep
 !public/demo.txt
+uploads/*
+!uploads/.keep
 
 # Generated CI validation output
 .tmp/

@@ -30,24 +30,12 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: initialize-public-file
-          image: rezwanul7/python-cicd:sha-ccab3bf6c888827db803280eb60dffdf22f5d885
-          imagePullPolicy: IfNotPresent
-          command:
-            - /bin/sh
-            - -c
-            - >-
-              test -f /writable-public/demo.txt || cp
-              /home/appuser/public/demo.txt /writable-public/demo.txt
-          volumeMounts:
-            - name: public-data
-              mountPath: /writable-public
       containers:
         - name: api
-          image: rezwanul7/python-cicd:sha-ccab3bf6c888827db803280eb60dffdf22f5d885
+          image: rezwanul7/python-cicd:sha-7a3609758c010806a988b15bace5b0522fbe5abf
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -93,12 +81,12 @@ spec:
           volumeMounts:
             - name: temporary-files
               mountPath: /tmp
-            - name: public-data
-              mountPath: /home/appuser/public
+            - name: uploads-data
+              mountPath: /home/appuser/uploads
       volumes:
         - name: temporary-files
           emptyDir: {}
-        - name: public-data
+        - name: uploads-data
           persistentVolumeClaim:
-            claimName: python-cicd-public-data
+            claimName: python-cicd-uploads
       terminationGracePeriodSeconds: 30
