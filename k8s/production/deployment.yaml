@@ -35,7 +35,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: rezwanul7/python-cicd:sha-7a3609758c010806a988b15bace5b0522fbe5abf
+          image: rezwanul7/python-cicd:sha-f1df282a30adeb60fefb5c12cac6b62bde3e7e09
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
