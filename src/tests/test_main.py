@@ -5,7 +5,7 @@ from re import fullmatch
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app
+from src.main import APP_VERSION, app
 
 PUBLIC_DEMO_FILE = Path("public/demo.txt")
 UPLOADED_FILE = Path("uploads/uploaded.txt")
@@ -41,7 +41,7 @@ def test_get_root_uses_default_environment_without_writing_upload_file(
     assert response.json() == {
         "message": "hello world!",
         "name": "PythonCICD",
-        "version": "0.1.0",
+        "version": APP_VERSION,
         "environment": "UNKNOWN",
         "served_by": socket.gethostname(),
     }
