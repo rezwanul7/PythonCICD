@@ -8,7 +8,7 @@ from src.middleware import ServedByMiddleware
 from src.routers import health, items, test_rw
 
 APP_NAME = "PythonCICD"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.1.1"
 
 
 @asynccontextmanager
