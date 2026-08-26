@@ -1,0 +1,93 @@
+name: Python App Docker Build - Self-Hosted Test
+
+on:
+  push:
+    branches: [ test-self-hosted ]
+    paths-ignore: [ '**.md' ]
+
+concurrency:
+  group: python-cicd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY_HOST: ${{ vars.PRIVATE_REGISTRY_HOST }}
+  REGISTRY_REPOSITORY: ${{ vars.PRIVATE_REGISTRY_REPOSITORY }}
+  DOCKER_REPO: ${{ vars.PRIVATE_REGISTRY_HOST }}/${{ vars.PRIVATE_REGISTRY_REPOSITORY }}
+  PRODUCTION_IMAGE: python-cicd:ci-production
+
+jobs:
+  quality:
+    name: Python Quality
+    runs-on: [ self-hosted, linux, x64 ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.2
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+      - name: Run tests
+        run: poetry run python -m pytest -v
+      - name: Run lint checks
+        run: |
+          poetry run ruff check .
+          poetry run ruff format --check .
+
+  configuration:
+    name: Configuration Validation
+    runs-on: [ self-hosted, linux, x64 ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Validate Docker and Compose configuration
+        run: bash scripts/ci/validate-config.sh
+      - name: Validate Kubernetes schemas
+        uses: docker://ghcr.io/yannh/kubeconform:v0.7.0
+        with:
+          entrypoint: /kubeconform
+          args: >-
+            -strict -summary
+            /github/workspace/.tmp/k8s/production.yaml
+
+  image:
+    name: Image Test & Publish
+    runs-on: [ self-hosted, linux, x64 ]
+    needs: [ quality, configuration ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Validate private registry configuration
+        shell: bash
+        run: |
+          : "${REGISTRY_HOST:?Set the PRIVATE_REGISTRY_HOST repository variable}"
+          : "${REGISTRY_REPOSITORY:?Set the PRIVATE_REGISTRY_REPOSITORY repository variable}"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build and test images
+        run: bash scripts/ci/test-images.sh
+      - name: Login to private registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ vars.PRIVATE_REGISTRY_HOST }}
+          username: ${{ secrets.PRIVATE_REGISTRY_USERNAME }}
+          password: ${{ secrets.PRIVATE_REGISTRY_PASSWORD }}
+      - name: Publish tested image
+        run: bash scripts/ci/publish-image.sh
+      - name: Upload release metadata
+        uses: actions/upload-artifact@v7
+        with:
+          name: self-hosted-test-release-metadata-${{ github.sha }}
+          path: release-metadata.json
+          if-no-files-found: error
+          retention-days: 30

@@ -12,6 +12,7 @@ case "$branch" in
   dev) channel_tag="dev" ;;
   staging) channel_tag="staging" ;;
   main) channel_tag="latest" ;;
+  test-self-hosted) channel_tag="test" ;;
   *) echo "Unsupported publishing branch: $branch" >&2; exit 1 ;;
 esac
 
