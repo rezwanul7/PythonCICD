@@ -217,6 +217,14 @@ Configure these GitHub Actions secrets:
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_ACCESS_TOKEN`
 
+Pushes to `test-self-hosted` use the separate
+`.github/workflows/python-app-ci-cd-docker-test.yml` workflow. It runs on the
+Linux x64 self-hosted runner and publishes authenticated test images to
+`registry.marsadlab.com` instead of Docker Hub. See the
+[self-hosted private registry CI setup guide](docs/self-hosted-private-registry-ci.md)
+for the required runner software, GitHub variables and secrets, verification,
+and troubleshooting steps.
+
 Per-branch concurrency cancels an older in-progress run before it can overwrite
 a newer channel tag. The local VM is intentionally deployed manually and does
 not need to be exposed to GitHub-hosted runners.
