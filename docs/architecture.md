@@ -1,4 +1,4 @@
-# PythonCICD Architecture
+# FastShip Architecture
 
 This document describes the architecture that exists in the repository today.
 It is a living document: update it when a component, deployment boundary, or
@@ -7,7 +7,7 @@ and must not be interpreted as already implemented.
 
 ## Current status
 
-PythonCICD is a small FastAPI service packaged as a Docker image. It can run
+FastShip is a small FastAPI service packaged as a Docker image. It can run
 locally with Docker Compose and in production on Kubernetes. GitHub Actions
 validates the application and publishes images to Docker Hub, while the
 Kubernetes deployment is performed manually from a trusted workstation.
@@ -119,14 +119,14 @@ current namespace and one cluster-scoped PersistentVolume:
 
 | Resource              | Name                        | Responsibility                                                  |
 |-----------------------|-----------------------------|-----------------------------------------------------------------|
-| ConfigMap             | `python-cicd-api-config`    | Supplies non-sensitive application configuration                |
-| PersistentVolume      | `python-cicd-uploads-nfs`   | Connects Kubernetes to the external NFS uploads export           |
-| PersistentVolumeClaim | `python-cicd-uploads`       | Requests shared read/write storage for simulated uploads         |
-| Deployment            | `python-cicd-api`           | Maintains two application replicas and performs rolling updates |
-| Service               | `python-cicd-api-service`   | Provides stable, internal routing to ready Pods                  |
-| Ingress               | `python-cicd-api`           | Routes ingress-controller HTTP traffic to the Service            |
+| ConfigMap             | `fastship-app-api-config`    | Supplies non-sensitive application configuration                |
+| PersistentVolume      | `fastship-app-uploads-nfs`   | Connects Kubernetes to the external NFS uploads export           |
+| PersistentVolumeClaim | `fastship-app-uploads`       | Requests shared read/write storage for simulated uploads         |
+| Deployment            | `fastship-app-api`           | Maintains two application replicas and performs rolling updates |
+| Service               | `fastship-app-api-service`   | Provides stable, internal routing to ready Pods                  |
+| Ingress               | `fastship-app-api`           | Routes ingress-controller HTTP traffic to the Service            |
 
-The resources keep `app.kubernetes.io/name: python-cicd` as their shared
+The resources keep `app.kubernetes.io/name: fastship-app` as their shared
 application identity. The Deployment selector, Pod labels, and Service selector
 also use `app.kubernetes.io/instance: production` and
 `app.kubernetes.io/component: api`, making the routing boundary explicit.
@@ -154,10 +154,10 @@ overhead.
 The container root filesystem is read-only. A temporary `emptyDir` volume is
 mounted at `/tmp`; its contents disappear when the Pod is replaced. Immutable
 assets remain at `/home/appuser/public` in the image. The
-`python-cicd-uploads` PersistentVolumeClaim is mounted at
+`fastship-app-uploads` PersistentVolumeClaim is mounted at
 `/home/appuser/uploads` and stores `uploaded.txt` after its first simulated
 upload. No init container seeds that directory. The claim is statically bound
-to the `python-cicd-uploads-nfs` PersistentVolume and uses `ReadWriteMany`, so
+to the `fastship-app-uploads-nfs` PersistentVolume and uses `ReadWriteMany`, so
 Pods on different nodes can share it. The NFS server remains an external
 availability and backup dependency.
 
@@ -184,7 +184,7 @@ application needs credentials.
 
 ## Delivery architecture
 
-The workflow in `.github/workflows/python-app-ci-cd-docker.yml` runs for pull
+The workflow in `.github/workflows/fastship-app-ci-cd-docker.yml` runs for pull
 requests and pushes involving `dev`, `staging`, or `main`, except
 documentation-only changes. Only pushes publish images. The branch channel
 mapping is `dev` to `dev`, `staging` to `staging`, and `main` to `latest`.

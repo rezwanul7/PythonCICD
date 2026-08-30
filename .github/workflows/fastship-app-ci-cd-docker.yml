@@ -1,4 +1,4 @@
-name: Python App Docker Build
+name: FastShip Docker Build
 
 on:
   push:
@@ -9,15 +9,15 @@ on:
     paths-ignore: [ '**.md' ]
 
 concurrency:
-  group: python-cicd-${{ github.workflow }}-${{ github.ref }}
+  group: fastship-app-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 env:
-  DOCKER_REPO: rezwanul7/python-cicd
-  PRODUCTION_IMAGE: python-cicd:ci-production
+  DOCKER_REPO: rezwanul7/fastship-app
+  PRODUCTION_IMAGE: fastship-app:ci-production
 
 jobs:
   quality:

@@ -1,6 +1,6 @@
 services:
-  python-ci-cd-app:
-    image: ${APP_IMAGE:-rezwanul7/python-cicd:staging}
+  fastship-app:
+    image: ${APP_IMAGE:-rezwanul7/fastship-app:staging}
     environment:
       APP_ENV: staging
     ports:

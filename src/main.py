@@ -7,8 +7,8 @@ from starlette.staticfiles import StaticFiles
 from src.middleware import ServedByMiddleware
 from src.routers import health, items, test_rw
 
-APP_NAME = "PythonCICD"
-APP_VERSION = "0.1.1"
+APP_NAME = "FastShip"
+APP_VERSION = "0.2.0"
 
 
 @asynccontextmanager

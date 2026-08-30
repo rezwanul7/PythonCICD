@@ -1,6 +1,6 @@
 services:
-  python-ci-cd-app:
-    image: python-cicd:development
+  fastship-app:
+    image: fastship-app:development
     build:
       context: ..
       args:

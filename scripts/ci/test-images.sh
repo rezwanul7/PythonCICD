@@ -3,7 +3,7 @@
 set -euo pipefail
 
 readonly production_image="${PRODUCTION_IMAGE:?PRODUCTION_IMAGE is required}"
-readonly development_image="python-cicd:ci-development"
+readonly development_image="fastship-app:ci-development"
 container_id=""
 host_port=""
 

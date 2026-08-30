@@ -1,6 +1,6 @@
 # Kubernetes Deployment Runbook
 
-This runbook describes how to deploy PythonCICD to Kubernetes, verify the
+This runbook describes how to deploy FastShip to Kubernetes, verify the
 release, update it, roll it back, and diagnose common failures.
 
 ## Deployment flow
@@ -9,7 +9,7 @@ The production release flow is:
 
 1. Merge and push production application changes to the `main` branch.
 2. GitHub Actions tests the application and container image.
-3. GitHub Actions publishes `rezwanul7/python-cicd` to Docker Hub with both
+3. GitHub Actions publishes `rezwanul7/fastship-app` to Docker Hub with both
    `latest` and an immutable `sha-<full-git-sha>` tag.
 4. Set that immutable tag in `k8s/production/deployment.yaml`.
 5. Apply the Kubernetes manifests and verify the rollout.
@@ -34,11 +34,11 @@ Before deploying, confirm that you have:
 - Permission to create cluster-scoped PersistentVolumes and namespaced
   PersistentVolumeClaims.
 - An NFS server reachable from every schedulable node at `192.168.50.10:2049`,
-  exporting `/srv/nfs/python-cicd-uploads` to every such node.
+  exporting `/srv/nfs/fastship-app-uploads` to every such node.
 - NFS client utilities (`nfs-common` on Ubuntu) installed on every node.
 - An installed and externally reachable Ingress controller.
 - A successful image-publishing run in GitHub Actions.
-- Access from the cluster to `docker.io/rezwanul7/python-cicd`.
+- Access from the cluster to `docker.io/rezwanul7/fastship-app`.
 
 The GitHub repository must contain these Actions secrets:
 
@@ -112,8 +112,8 @@ The application runs with UID and GID `10001`. On the NFS server, make that
 identity the owner of the uploads directory and keep `root_squash` enabled:
 
 ```bash
-sudo chown 10001:10001 /srv/nfs/python-cicd-uploads
-sudo chmod 0770 /srv/nfs/python-cicd-uploads
+sudo chown 10001:10001 /srv/nfs/fastship-app-uploads
+sudo chmod 0770 /srv/nfs/fastship-app-uploads
 ```
 
 The export must authorize the IP of every node on which an application Pod can
@@ -130,11 +130,11 @@ sudo exportfs -v
 Before applying Kubernetes resources, test the export from each node:
 
 ```bash
-sudo mkdir -p /mnt/python-cicd-uploads-test
-sudo mount -t nfs4 192.168.50.10:/srv/nfs/python-cicd-uploads /mnt/python-cicd-uploads-test
-sudo -u '#10001' touch /mnt/python-cicd-uploads-test/node-write-test
-sudo -u '#10001' rm /mnt/python-cicd-uploads-test/node-write-test
-sudo umount /mnt/python-cicd-uploads-test
+sudo mkdir -p /mnt/fastship-app-uploads-test
+sudo mount -t nfs4 192.168.50.10:/srv/nfs/fastship-app-uploads /mnt/fastship-app-uploads-test
+sudo -u '#10001' touch /mnt/fastship-app-uploads-test/node-write-test
+sudo -u '#10001' rm /mnt/fastship-app-uploads-test/node-write-test
+sudo umount /mnt/fastship-app-uploads-test
 ```
 
 If `ubuntu001` does not have `192.168.50.10`, change `spec.nfs.server` in
@@ -148,19 +148,19 @@ Push the release commit to the production publishing branch:
 git push origin main
 ```
 
-Documentation-only pushes do not start the workflow. Wait for the **Python App
+Documentation-only pushes do not start the workflow. Wait for the **FastShip
 Docker Build** workflow to succeed. It publishes these tags:
 
 ```text
-rezwanul7/python-cicd:latest
-rezwanul7/python-cicd:sha-<full-git-sha>
+rezwanul7/fastship-app:latest
+rezwanul7/fastship-app:sha-<full-git-sha>
 ```
 
 The workflow also uploads `release-metadata.json`, which records the immutable
 tag and repository digest for the release.
 
 Use the `sha-<full-git-sha>` tag for Kubernetes. Immutable tags make it clear
-which code is running and make rollback reproducible. The full SHA for the
+which code is running and make releases reproducible. The full SHA for the
 checked-out commit is available with:
 
 ```shell
@@ -174,26 +174,18 @@ git rev-parse HEAD
 In `k8s/production/deployment.yaml`, replace:
 
 ```yaml
-image: rezwanul7/python-cicd:sha-replace-with-full-git-sha
+image: rezwanul7/fastship-app:sha-replace-with-full-git-sha
 ```
 
 with the immutable tag published by the successful workflow, for example:
 
 ```yaml
-image: rezwanul7/python-cicd:sha-0123456789abcdef0123456789abcdef01234567
+image: rezwanul7/fastship-app:sha-0123456789abcdef0123456789abcdef01234567
 ```
 
 Commit this manifest change so the repository records the deployed version.
 
-### 2. Review an existing uploads claim
-
-This NFS migration creates the new claim `python-cicd-uploads`; it does not
-delete the previous `python-cicd-public-data` local-path claim or copy its data.
-Copy any upload data that must be retained into the NFS export before switching
-the Deployment. Leave the old claim in place until the NFS rollout and upload
-checks have succeeded.
-
-### 3. Validate the manifests
+### 2. Validate the manifests
 
 Run client-side validation before changing the cluster:
 
@@ -210,28 +202,14 @@ kubectl diff -f k8s/production
 `kubectl diff` normally exits with status `1` when differences exist; that does
 not mean validation failed.
 
-### 4. Apply the manifests
+### 3. Apply the manifests
 
 ```shell
 kubectl apply -f k8s/production
-kubectl rollout status deployment/python-cicd-api --timeout=120s
+kubectl rollout status deployment/fastship-app-api --timeout=120s
 ```
 
 The rollout is successful when both replicas become available.
-
-### Upgrading from the legacy resource names
-
-Older versions of these manifests named the ConfigMap, Deployment, and Service
-`python-cicd`. Applying the renamed manifests creates new resources; it does not
-rename or replace the old ones. After `python-cicd-api` reports `2/2` ready
-replicas and the smoke test below succeeds, remove the legacy resources:
-
-```shell
-kubectl delete deployment/python-cicd service/python-cicd configmap/python-cicd
-```
-
-Skip this cleanup on a first deployment or when the legacy resources do not
-exist.
 
 ## Verify the deployment
 
@@ -239,23 +217,23 @@ Inspect the workload and Service:
 
 ```shell
 kubectl get deployment,pods,service,pv,pvc
-kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
+kubectl get deployment fastship-app-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 
 The expected state is:
 
-- Deployment `python-cicd-api` reports `2/2` ready replicas.
+- Deployment `fastship-app-api` reports `2/2` ready replicas.
 - Both application Pods are `Running` and ready.
-- Service `python-cicd-api-service` is a `ClusterIP` listening on port `8000`.
-- Ingress `python-cicd-api` routes HTTP traffic to the internal Service.
-- PV `python-cicd-uploads-nfs` and PVC `python-cicd-uploads` are `Bound`.
+- Service `fastship-app-api-service` is a `ClusterIP` listening on port `8000`.
+- Ingress `fastship-app-api` routes HTTP traffic to the internal Service.
+- PV `fastship-app-uploads-nfs` and PVC `fastship-app-uploads` are `Bound`.
 - The NFS claim is mounted at `/home/appuser/uploads` in both Pods.
 - The Deployment image matches the selected immutable SHA tag.
 
 Get the Ingress address and smoke-test it over HTTP:
 
 ```shell
-kubectl get ingress python-cicd-api
+kubectl get ingress fastship-app-api
 curl http://<ingress-address>/health/startup
 curl http://<ingress-address>/health/live
 curl http://<ingress-address>/health/ready
@@ -268,7 +246,7 @@ an environment that cannot reach it, forward the internal Service to the local
 machine instead:
 
 ```shell
-kubectl port-forward service/python-cicd-api-service 8000:8000
+kubectl port-forward service/fastship-app-api-service 8000:8000
 curl http://localhost:8000/health/startup
 curl http://localhost:8000/health/live
 curl http://localhost:8000/health/ready
@@ -281,26 +259,12 @@ Interactive API documentation is available at <http://localhost:8000/docs>.
 Verify shared writes through both replicas after creating an upload:
 
 ```shell
-kubectl get pods -l app.kubernetes.io/name=python-cicd -o name
+kubectl get pods -l app.kubernetes.io/name=fastship-app -o name
 kubectl exec <first-pod-name> -- cat /home/appuser/uploads/uploaded.txt
 kubectl exec <second-pod-name> -- cat /home/appuser/uploads/uploaded.txt
 ```
 
-Only after this succeeds may the old `python-cicd-public-data` claim be removed,
-if its retained data is no longer required.
-
-### One-time upload cleanup for this release
-
-This release moves `demo.txt` back into the immutable image and stops seeding
-the uploads volume. After `/public/demo.txt` succeeds, remove only the legacy
-copy from the existing PVC:
-
-```shell
-kubectl get pods -l app.kubernetes.io/name=python-cicd
-kubectl exec <python-cicd-pod-name> -- rm -f /home/appuser/uploads/demo.txt
-```
-
-Before the first upload write, both of these requests must return HTTP 404:
+Before the first upload write, both upload requests must return HTTP 404:
 
 ```shell
 curl --output /dev/null --silent --write-out '%{http_code}\n' \
@@ -327,7 +291,7 @@ For each release:
 kubectl apply --dry-run=client -f k8s/production
 kubectl diff -f k8s/production
 kubectl apply -f k8s/production
-kubectl rollout status deployment/python-cicd-api --timeout=120s
+kubectl rollout status deployment/fastship-app-api --timeout=120s
 kubectl get pods
 ```
 
@@ -339,20 +303,20 @@ the replacement Pods become ready.
 View the Deployment's rollout history:
 
 ```shell
-kubectl rollout history deployment/python-cicd-api
+kubectl rollout history deployment/fastship-app-api
 ```
 
 Undo the most recent rollout:
 
 ```shell
-kubectl rollout undo deployment/python-cicd-api
-kubectl rollout status deployment/python-cicd-api --timeout=120s
+kubectl rollout undo deployment/fastship-app-api
+kubectl rollout status deployment/fastship-app-api --timeout=120s
 ```
 
 To restore a specific revision:
 
 ```shell
-kubectl rollout undo deployment/python-cicd-api --to-revision=<revision-number>
+kubectl rollout undo deployment/fastship-app-api --to-revision=<revision-number>
 ```
 
 After an emergency rollback, update `k8s/production/deployment.yaml` to the
@@ -365,7 +329,7 @@ Start with these commands:
 
 ```shell
 kubectl get pods
-kubectl describe deployment python-cicd-api
+kubectl describe deployment fastship-app-api
 kubectl describe pod <pod-name>
 kubectl logs <pod-name>
 kubectl get events --sort-by=.metadata.creationTimestamp
@@ -431,11 +395,11 @@ kubectl diff -f k8s/production
 kubectl apply -f k8s/production
 
 # Verify the release
-kubectl rollout status deployment/python-cicd-api --timeout=120s
+kubectl rollout status deployment/fastship-app-api --timeout=120s
 kubectl get deployment,pods,service,pv,pvc
-kubectl get deployment python-cicd-api -o jsonpath='{.spec.template.spec.containers[0].image}'
+kubectl get deployment fastship-app-api -o jsonpath='{.spec.template.spec.containers[0].image}'
 
 # Smoke-test through the Ingress controller address
-kubectl get ingress python-cicd-api
+kubectl get ingress fastship-app-api
 curl http://<ingress-address>/health/ready
 ```

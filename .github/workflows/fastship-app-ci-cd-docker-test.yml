@@ -1,4 +1,4 @@
-name: Python App Docker Build - Self-Hosted Test
+name: FastShip Docker Build - Self-Hosted Test
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     paths-ignore: [ '**.md' ]
 
 concurrency:
-  group: python-cicd-${{ github.workflow }}-${{ github.ref }}
+  group: fastship-app-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -16,7 +16,7 @@ env:
   REGISTRY_HOST: ${{ vars.PRIVATE_REGISTRY_HOST }}
   REGISTRY_REPOSITORY: ${{ vars.PRIVATE_REGISTRY_REPOSITORY }}
   DOCKER_REPO: ${{ vars.PRIVATE_REGISTRY_HOST }}/${{ vars.PRIVATE_REGISTRY_REPOSITORY }}
-  PRODUCTION_IMAGE: python-cicd:ci-production
+  PRODUCTION_IMAGE: fastship-app:ci-production
 
 jobs:
   quality:

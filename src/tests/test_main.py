@@ -5,7 +5,7 @@ from re import fullmatch
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import APP_VERSION, app
+from src.main import app
 
 PUBLIC_DEMO_FILE = Path("public/demo.txt")
 UPLOADED_FILE = Path("uploads/uploaded.txt")
@@ -40,8 +40,8 @@ def test_get_root_uses_default_environment_without_writing_upload_file(
     assert response.status_code == 200
     assert response.json() == {
         "message": "hello world!",
-        "name": "PythonCICD",
-        "version": APP_VERSION,
+        "name": "FastShip",
+        "version": "0.2.0",
         "environment": "UNKNOWN",
         "served_by": socket.gethostname(),
     }
@@ -56,6 +56,16 @@ def test_get_root_uses_configured_environment(client, monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["environment"] == "test"
+
+
+def test_openapi_metadata_uses_fastship_name_and_version(client):
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    assert response.json()["info"] == {
+        "title": "FastShip",
+        "version": "0.2.0",
+    }
 
 
 def test_startup_probe(client):

@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: python-cicd-uploads-nfs
+  name: fastship-app-uploads-nfs
   labels:
-    app.kubernetes.io/name: python-cicd
+    app.kubernetes.io/name: fastship-app
     app.kubernetes.io/instance: production
     app.kubernetes.io/component: api
 spec:
@@ -17,4 +17,4 @@ spec:
     - nfsvers=4.1
   nfs:
     server: 192.168.50.10
-    path: /srv/nfs/python-cicd-uploads
+    path: /srv/nfs/fastship-app-uploads

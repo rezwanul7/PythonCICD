@@ -1,1 +1,1 @@
-"""PythonCICD application package."""
+"""FastShip application package."""

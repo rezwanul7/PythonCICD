@@ -1,9 +1,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: python-cicd-api
+  name: fastship-app-api
   labels:
-    app.kubernetes.io/name: python-cicd
+    app.kubernetes.io/name: fastship-app
     app.kubernetes.io/instance: production
     app.kubernetes.io/component: api
 spec:
@@ -14,6 +14,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: python-cicd-api-service
+                name: fastship-app-api-service
                 port:
                   name: http

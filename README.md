@@ -1,6 +1,6 @@
-# PythonCICD
+# FastShip
 
-PythonCICD is a small FastAPI application demonstrating a containerized CI/CD
+FastShip is a small FastAPI application demonstrating a containerized CI/CD
 workflow with Poetry, Docker Compose, GitHub Actions, Docker Hub, and Kubernetes.
 Docker Compose supports local development plus staging and production checks;
 plain Kubernetes manifests deploy the production application.
@@ -83,19 +83,19 @@ The API is available at `http://localhost:8000` and reports
 docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml down
 ```
 
-Staging defaults to `rezwanul7/python-cicd:staging`, while production defaults
-to `rezwanul7/python-cicd:latest`. Set `APP_IMAGE` to use a complete immutable
+Staging defaults to `rezwanul7/fastship-app:staging`, while production defaults
+to `rezwanul7/fastship-app:latest`. Set `APP_IMAGE` to use a complete immutable
 tag or digest instead. For example, in PowerShell:
 
 ```powershell
-$env:APP_IMAGE = "rezwanul7/python-cicd:sha-<full-git-sha>"
+$env:APP_IMAGE = "rezwanul7/fastship-app:sha-<full-git-sha>"
 docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml up -d
 ```
 
 In a POSIX-compatible shell:
 
 ```shell
-APP_IMAGE=rezwanul7/python-cicd@sha256:<digest> \
+APP_IMAGE=rezwanul7/fastship-app@sha256:<digest> \
   docker compose -f docker/docker-compose.yaml -f docker/docker-compose.prod.yaml up -d
 ```
 
@@ -105,16 +105,16 @@ The default build creates a production image containing runtime dependencies onl
 
 ```shell
 docker build --check .
-docker build --tag python-cicd:local .
-docker run --rm --publish 8000:8000 python-cicd:local
+docker build --tag fastship-app:local .
+docker run --rm --publish 8000:8000 fastship-app:local
 ```
 
 Poetry and development tools such as pytest remain outside the production image.
 Build and test the development variant with:
 
 ```shell
-docker build --build-arg BUILD_ENVIRONMENT=development --tag python-cicd:development .
-docker run --rm python-cicd:development python -m pytest -v
+docker build --build-arg BUILD_ENVIRONMENT=development --tag fastship-app:development .
+docker run --rm fastship-app:development python -m pytest -v
 ```
 
 The builder and runtime stages are pinned to matching Python 3.11.15 Bookworm
@@ -218,7 +218,7 @@ Configure these GitHub Actions secrets:
 - `DOCKERHUB_ACCESS_TOKEN`
 
 Pushes to `test-self-hosted` use the separate
-`.github/workflows/python-app-ci-cd-docker-test.yml` workflow. It runs on the
+`.github/workflows/fastship-app-ci-cd-docker-test.yml` workflow. It runs on the
 Linux x64 self-hosted runner and publishes authenticated test images to
 `registry.marsadlab.com` instead of Docker Hub. See the
 [self-hosted private registry CI setup guide](docs/self-hosted-private-registry-ci.md)
@@ -241,14 +241,14 @@ immutable `sha-<full-git-sha>` tag. Then deploy the production manifests:
 
 ```shell
 kubectl apply -f k8s/production
-kubectl rollout status deployment/python-cicd-api --timeout=120s
+kubectl rollout status deployment/fastship-app-api --timeout=120s
 kubectl get pods,service,pv,pvc
 ```
 
-The `test-rw/uploads` endpoint writes to the `python-cicd-uploads`
+The `test-rw/uploads` endpoint writes to the `fastship-app-uploads`
 PersistentVolumeClaim mounted at `/home/appuser/uploads`. It is statically
-bound to the `python-cicd-uploads-nfs` PersistentVolume, which uses the NFS
-export `/srv/nfs/python-cicd-uploads` on `192.168.50.10`. Its `ReadWriteMany`
+bound to the `fastship-app-uploads-nfs` PersistentVolume, which uses the NFS
+export `/srv/nfs/fastship-app-uploads` on `192.168.50.10`. Its `ReadWriteMany`
 access mode lets replicas on different Kubernetes nodes share uploaded files.
 The PV's declared `1Gi` capacity is used for Kubernetes claim matching; NFS
 does not enforce that limit unless the server filesystem has a matching quota.
@@ -261,11 +261,11 @@ The Service is intentionally internal (`ClusterIP`). For a beginner-friendly
 local check, forward its port and open `http://localhost:8000/docs`:
 
 ```shell
-kubectl port-forward service/python-cicd-api-service 8000:8000
+kubectl port-forward service/fastship-app-api-service 8000:8000
 ```
 
-For prerequisites, release verification, upgrades, rollbacks, troubleshooting,
-and options for public exposure, see the
+For prerequisites, release verification, upgrades, troubleshooting, and options
+for public exposure, see the
 [Kubernetes deployment runbook](docs/kubernetes-deployment-runbook.md).
 
 **Notes:**

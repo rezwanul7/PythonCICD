@@ -4,7 +4,7 @@ import uvicorn
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the PythonCICD API")
+    parser = argparse.ArgumentParser(description="Run the FastShip API")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", default=8000, type=int)
     parser.add_argument("--reload", action="store_true")

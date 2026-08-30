@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: python-cicd-api
+  name: fastship-app-api
   labels:
-    app.kubernetes.io/name: python-cicd
+    app.kubernetes.io/name: fastship-app
     app.kubernetes.io/instance: production
     app.kubernetes.io/component: api
 spec:
@@ -15,13 +15,13 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: python-cicd
+      app.kubernetes.io/name: fastship-app
       app.kubernetes.io/instance: production
       app.kubernetes.io/component: api
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: python-cicd
+        app.kubernetes.io/name: fastship-app
         app.kubernetes.io/instance: production
         app.kubernetes.io/component: api
     spec:
@@ -35,7 +35,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: rezwanul7/python-cicd:sha-f1df282a30adeb60fefb5c12cac6b62bde3e7e09
+          image: rezwanul7/fastship-app:sha-replace-with-full-git-sha
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -43,7 +43,7 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: python-cicd-api-config
+                name: fastship-app-api-config
           startupProbe:
             httpGet:
               path: /health/startup
@@ -88,5 +88,5 @@ spec:
           emptyDir: {}
         - name: uploads-data
           persistentVolumeClaim:
-            claimName: python-cicd-uploads
+            claimName: fastship-app-uploads
       terminationGracePeriodSeconds: 30

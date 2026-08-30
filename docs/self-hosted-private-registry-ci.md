@@ -1,15 +1,15 @@
 # Self-hosted private registry CI setup
 
-The `Python App Docker Build - Self-Hosted Test` GitHub Actions workflow runs
+The `FastShip Docker Build - Self-Hosted Test` GitHub Actions workflow runs
 when a non-documentation change is pushed to `test-self-hosted`. It uses a
 Linux x64 self-hosted runner, tests the application and its images, logs in to
 the private registry, and publishes:
 
-- `registry.marsadlab.com/rezwanul7/python-cicd:test`
-- `registry.marsadlab.com/rezwanul7/python-cicd:sha-<full-git-sha>`
+- `registry.marsadlab.com/rezwanul7/fastship-app:test`
+- `registry.marsadlab.com/rezwanul7/fastship-app:sha-<full-git-sha>`
 
 The workflow definition is
-`.github/workflows/python-app-ci-cd-docker-test.yml`.
+`.github/workflows/fastship-app-ci-cd-docker-test.yml`.
 
 ## 1. Check the self-hosted runner
 
@@ -59,11 +59,11 @@ Create these repository variables:
 | Name | Value |
 |------|-------|
 | `PRIVATE_REGISTRY_HOST` | `registry.marsadlab.com` |
-| `PRIVATE_REGISTRY_REPOSITORY` | `rezwanul7/python-cicd` |
+| `PRIVATE_REGISTRY_REPOSITORY` | `rezwanul7/fastship-app` |
 
 Use only the registry hostname for `PRIVATE_REGISTRY_HOST`: do not include
 `https://` or a trailing slash. The workflow combines the two variables into
-`registry.marsadlab.com/rezwanul7/python-cicd`.
+`registry.marsadlab.com/rezwanul7/fastship-app`.
 
 ## 3. Create the GitHub Actions secrets
 
@@ -88,7 +88,7 @@ git push origin test-self-hosted
 ```
 
 Documentation-only pushes are ignored by this workflow. In GitHub, open
-**Actions > Python App Docker Build - Self-Hosted Test** and confirm that these
+**Actions > FastShip Docker Build - Self-Hosted Test** and confirm that these
 jobs pass:
 
 1. `Python Quality`
@@ -101,7 +101,7 @@ published test tag from an authorized Docker client:
 
 ```bash
 docker login registry.marsadlab.com --username marsad
-docker pull registry.marsadlab.com/rezwanul7/python-cicd:test
+docker pull registry.marsadlab.com/rezwanul7/fastship-app:test
 ```
 
 ## Troubleshooting
@@ -110,7 +110,7 @@ docker pull registry.marsadlab.com/rezwanul7/python-cicd:test
 |---------|-------|
 | Workflow remains queued | Confirm the runner is online and has `self-hosted`, `linux`, and `x64` labels. |
 | `unauthorized` during login | Re-enter both GitHub secrets and confirm the registry account is enabled. |
-| `denied: requested access` during push | Confirm `marsad` has push access to `rezwanul7/python-cicd`. |
+| `denied: requested access` during push | Confirm `marsad` has push access to `rezwanul7/fastship-app`. |
 | `x509: certificate signed by unknown authority` | Install the registry CA on the runner or fix the registry certificate chain. Do not fall back to an insecure registry. |
 | `server gave HTTP response to HTTPS client` | Confirm the registry serves HTTPS and that `PRIVATE_REGISTRY_HOST` is exactly `registry.marsadlab.com`. |
 | Registry variables reported missing | Check that both entries were created as repository **variables**, not secrets. |
